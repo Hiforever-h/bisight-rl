@@ -1,0 +1,18 @@
+dataset: HuggingFaceM4/ChartQA
+dataset_revision: main
+model: Qwen/Qwen3-VL-4B-Instruct
+model_revision: main
+seed: 20260917
+target_size: 2000
+pilot_size: 100
+quick_size: 256
+phash_distance: 6
+near_pixel_size: 128
+near_pixel_mae: 0.01
+near_changed_fraction: 0.04
+near_channel_difference: 32
+expected_counts:
+  train: 28299
+  val: 1920
+  test: 2500
+

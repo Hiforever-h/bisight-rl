@@ -1,0 +1,12 @@
+seed: 20260918
+temperature: 0.7
+top_p: 0.9
+max_new_tokens: 2048
+max_attempts: 3
+min_pixels: 65536
+max_pixels: 1048576
+max_input_tokens: 4096
+max_sft_tokens: 6144
+dtype: bfloat16
+attention: sdpa
+

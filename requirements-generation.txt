@@ -1,0 +1,6 @@
+# Install the CUDA-specific torch/torchvision wheels first (see README).
+transformers==4.57.1
+accelerate==1.10.1
+huggingface_hub==0.36.2
+Pillow==12.3.0
+PyYAML==6.0.3

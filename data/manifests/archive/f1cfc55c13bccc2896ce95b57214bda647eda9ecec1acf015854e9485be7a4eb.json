@@ -1,0 +1,218 @@
+{
+  "status": "candidates_ready_not_rationale_master",
+  "created_at": "2026-09-17T07:39:17.533428+00:00",
+  "dataset_revision": "b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5",
+  "model_revision": "ebb281ec70b05090aa6165b016eac8ec08e71b17",
+  "config_sha256": "c6518d44bcf9781d8d0461bc1d488fd4c7ad1cdc023cbebff010cae0a2a5fedb",
+  "preparation_script_sha256": "9af01b94d324cec7f9f6d6ab5c6227160dbd6433c014e7f76fdf10329338696d",
+  "data_module_sha256": "0127d1f2bf492c922fbaa958d76581f246ddd837bccc52c6c2f5936d4ddb5eb3",
+  "seed": 20260917,
+  "target_size": 2000,
+  "target_quotas": {
+    "human:list": 4,
+    "human:numeric": 361,
+    "human:text": 158,
+    "machine:numeric": 1254,
+    "machine:text": 223
+  },
+  "python": "3.11.16",
+  "dependencies": {
+    "Pillow": "12.3.0",
+    "ImageHash": "4.3.2",
+    "numpy": "2.4.6",
+    "pyarrow": "23.0.1"
+  },
+  "artifacts": {
+    "candidates/train_candidates.jsonl": {
+      "sha256": "0d4a1b9b45f1d1a088db17d1d0b8f5fbc0e3cdfbcfdb4d49e403301d0c6333db",
+      "rows": 13948
+    },
+    "candidates/train_initial_2000.jsonl": {
+      "sha256": "a5e5180229cde203a46251d1f2a216b2504f349bbdc1968c354573101144400f",
+      "rows": 2000
+    },
+    "candidates/pilot_100.jsonl": {
+      "sha256": "c43a45cd8e727f217fff144e2159ef067012ce79bf488e4bea9ab4e5e0cc6828",
+      "rows": 100
+    },
+    "candidates/dev_full.jsonl": {
+      "sha256": "156ad4f78859b0206c5fb3ccf39f11be26187c4a4ffabb7900d09f009a9113bc",
+      "rows": 1203
+    },
+    "candidates/dev_quick.jsonl": {
+      "sha256": "147fde9ae17d2fc1fd71a02439b55c0087cccc858bfc47b33ff26822b4365f2e",
+      "rows": 256
+    },
+    "candidates/test_full.jsonl": {
+      "sha256": "522ca7b0286f7ea4f16b296db91123e8d86bcba64d161e42464ec46e2e799522",
+      "rows": 2500
+    },
+    "reviews/cross_split_pairs.jsonl": {
+      "sha256": "09c6d25baf4eb4392f39cc0b09060b688fb0baa24803c3f8f8641d539a165a36",
+      "rows": 124082
+    },
+    "reviews/train_exclusions.jsonl": {
+      "sha256": "b16137a7d6acf657f97ad71ebf7f37883e289ef9f00316960995ad5afa823067",
+      "rows": 14351
+    },
+    "reviews/data_errors.jsonl": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rows": 0
+    }
+  },
+  "summary": {
+    "raw": {
+      "train": {
+        "questions": 28299,
+        "charts": 18271,
+        "strata": {
+          "human:list": 61,
+          "human:numeric": 5100,
+          "human:text": 2237,
+          "machine:numeric": 17747,
+          "machine:text": 3154
+        },
+        "source": {
+          "human": 7398,
+          "machine": 20901
+        },
+        "max_questions_per_chart": 6
+      },
+      "val": {
+        "questions": 1920,
+        "charts": 1055,
+        "strata": {
+          "human:list": 3,
+          "human:numeric": 648,
+          "human:text": 309,
+          "machine:numeric": 795,
+          "machine:text": 165
+        },
+        "source": {
+          "human": 960,
+          "machine": 960
+        },
+        "max_questions_per_chart": 6
+      },
+      "test": {
+        "questions": 2500,
+        "charts": 1509,
+        "strata": {
+          "human:list": 10,
+          "human:numeric": 835,
+          "human:text": 405,
+          "machine:numeric": 1080,
+          "machine:text": 170
+        },
+        "source": {
+          "human": 1250,
+          "machine": 1250
+        },
+        "max_questions_per_chart": 5
+      }
+    },
+    "eligible_train": {
+      "questions": 13948,
+      "charts": 8604,
+      "strata": {
+        "human:list": 30,
+        "human:numeric": 3635,
+        "human:text": 1582,
+        "machine:numeric": 7694,
+        "machine:text": 1007
+      },
+      "source": {
+        "human": 5247,
+        "machine": 8701
+      },
+      "max_questions_per_chart": 6
+    },
+    "initial_2000": {
+      "questions": 2000,
+      "charts": 1891,
+      "strata": {
+        "human:list": 4,
+        "human:numeric": 361,
+        "human:text": 158,
+        "machine:numeric": 1254,
+        "machine:text": 223
+      },
+      "source": {
+        "machine": 1477,
+        "human": 523
+      },
+      "max_questions_per_chart": 3
+    },
+    "pilot_100": {
+      "questions": 100,
+      "charts": 100,
+      "strata": {
+        "human:numeric": 18,
+        "human:text": 8,
+        "machine:numeric": 63,
+        "machine:text": 11
+      },
+      "source": {
+        "machine": 74,
+        "human": 26
+      },
+      "max_questions_per_chart": 1
+    },
+    "dev_full": {
+      "questions": 1203,
+      "charts": 634,
+      "strata": {
+        "human:list": 2,
+        "human:numeric": 466,
+        "human:text": 208,
+        "machine:numeric": 440,
+        "machine:text": 87
+      },
+      "source": {
+        "human": 676,
+        "machine": 527
+      },
+      "max_questions_per_chart": 5
+    },
+    "dev_quick": {
+      "questions": 256,
+      "charts": 229,
+      "strata": {
+        "human:numeric": 100,
+        "human:text": 44,
+        "machine:numeric": 94,
+        "machine:text": 18
+      },
+      "source": {
+        "human": 144,
+        "machine": 112
+      },
+      "max_questions_per_chart": 3
+    },
+    "cross_split_pairs": {
+      "unresolved_near_duplicate": 124066,
+      "confirmed_pixel_duplicate": 16
+    },
+    "excluded_train_reasons": {
+      "cross_split_image_overlap_or_unresolved_near_duplicate": 14223,
+      "duplicate_qa": 79,
+      "conflicting_labels": 49
+    },
+    "quarantined_image_counts": {
+      "train": 9647,
+      "val": 421
+    },
+    "target_quotas": {
+      "human:list": 4,
+      "human:numeric": 361,
+      "human:text": 158,
+      "machine:numeric": 1254,
+      "machine:text": 223
+    }
+  },
+  "limitations": [
+    "Perceptual hash candidates conservatively quarantined, not claimed confirmed duplicates",
+    "No GPU generation or human rationale review performed",
+    "Latency subset awaits frozen processor input token counts"
+  ]
+}

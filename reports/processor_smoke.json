@@ -1,0 +1,467 @@
+{
+  "status": "passed",
+  "model_revision": "ebb281ec70b05090aa6165b016eac8ec08e71b17",
+  "samples": 32,
+  "processor_class": "Qwen3VLProcessor",
+  "large_image_processed_pixels": 1048576,
+  "image_processor": {
+    "_processor_class": "Qwen3VLProcessor",
+    "size": {
+      "shortest_edge": 65536,
+      "longest_edge": 1048576
+    },
+    "min_pixels": 65536,
+    "max_pixels": 1048576,
+    "patch_size": 16,
+    "temporal_patch_size": 2,
+    "merge_size": 2,
+    "image_mean": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "image_std": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "image_processor_type": "Qwen2VLImageProcessorFast",
+    "crop_size": null,
+    "pad_size": null,
+    "do_resize": true,
+    "default_to_square": true,
+    "resample": 3,
+    "do_center_crop": null,
+    "do_rescale": true,
+    "rescale_factor": 0.00392156862745098,
+    "do_normalize": true,
+    "do_pad": null,
+    "do_convert_rgb": true,
+    "return_tensors": null,
+    "data_format": "channels_first",
+    "input_data_format": null,
+    "device": null,
+    "disable_grouping": null
+  },
+  "input_token_min": 271,
+  "input_token_max": 862,
+  "records": [
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:14402",
+      "input_tokens": 511,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:6758",
+      "input_tokens": 503,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:14967",
+      "input_tokens": 508,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:1508",
+      "input_tokens": 598,
+      "visual_tokens": 513,
+      "image_grid_thw": [
+        [
+          1,
+          38,
+          54
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:3621",
+      "input_tokens": 554,
+      "visual_tokens": 475,
+      "image_grid_thw": [
+        [
+          1,
+          38,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:26388",
+      "input_tokens": 509,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:21619",
+      "input_tokens": 513,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:21266",
+      "input_tokens": 783,
+      "visual_tokens": 700,
+      "image_grid_thw": [
+        [
+          1,
+          56,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:15675",
+      "input_tokens": 517,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:24215",
+      "input_tokens": 509,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:5257",
+      "input_tokens": 509,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:27612",
+      "input_tokens": 519,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:22764",
+      "input_tokens": 512,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:25792",
+      "input_tokens": 509,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:11002",
+      "input_tokens": 862,
+      "visual_tokens": 775,
+      "image_grid_thw": [
+        [
+          1,
+          62,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:4388",
+      "input_tokens": 500,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:9199",
+      "input_tokens": 509,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:26900",
+      "input_tokens": 514,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:17774",
+      "input_tokens": 861,
+      "visual_tokens": 775,
+      "image_grid_thw": [
+        [
+          1,
+          62,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:14686",
+      "input_tokens": 735,
+      "visual_tokens": 650,
+      "image_grid_thw": [
+        [
+          1,
+          52,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:6930",
+      "input_tokens": 509,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:10310",
+      "input_tokens": 514,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:24439",
+      "input_tokens": 521,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:2639",
+      "input_tokens": 271,
+      "visual_tokens": 182,
+      "image_grid_thw": [
+        [
+          1,
+          28,
+          26
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:8573",
+      "input_tokens": 512,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:11017",
+      "input_tokens": 501,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:12194",
+      "input_tokens": 507,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:4167",
+      "input_tokens": 503,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:18860",
+      "input_tokens": 635,
+      "visual_tokens": 550,
+      "image_grid_thw": [
+        [
+          1,
+          44,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:9519",
+      "input_tokens": 510,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:10627",
+      "input_tokens": 509,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    },
+    {
+      "id": "chartqa:b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5:train:7169",
+      "input_tokens": 506,
+      "visual_tokens": 425,
+      "image_grid_thw": [
+        [
+          1,
+          34,
+          50
+        ]
+      ],
+      "empty_think_preserved": true
+    }
+  ],
+  "limitation": "CPU processor/template smoke only; GPU forward and actual training-loader loss masks remain pending"
+}

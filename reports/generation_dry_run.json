@@ -1,0 +1,28 @@
+{
+  "stage": "pilot",
+  "candidate_count": 100,
+  "target": 2000,
+  "contract": {
+    "source_revision": "b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5",
+    "model": "Qwen/Qwen3-VL-4B-Instruct",
+    "model_revision": "ebb281ec70b05090aa6165b016eac8ec08e71b17",
+    "build_sha256": "03e5b5a042dcff71b635c1a1daa1b7647c8182e97f6fb14a26b9c93e274014d8",
+    "generation_config": {
+      "seed": 20260918,
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "max_new_tokens": 2048,
+      "max_attempts": 3,
+      "min_pixels": 65536,
+      "max_pixels": 1048576,
+      "max_input_tokens": 4096,
+      "max_sft_tokens": 6144,
+      "dtype": "bfloat16",
+      "attention": "sdpa"
+    },
+    "reverse_prompt_sha256": "6ac77fe24bbe7b1550ae475a0638788a0481696de29923b8e1bd70d4249fdc29",
+    "adaptive_prompt_sha256": "bff4decca0cd40ec4bfea2658c54174914c55a1d7f1b498f30fc9408d5e32335",
+    "generator_sha256": "053cbf391368fdaaef2ec955a750d89735c900265a67df1f8c0ce7266782fef7",
+    "quality_sha256": "b51dbef80ff38480ccab134772134cb44a060e6a912ea2866b680160aafed8d0"
+  }
+}

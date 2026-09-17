@@ -1,0 +1,2 @@
+Answer the question using the chart. If reasoning is needed, put it inside <think>...</think>; you may leave this block empty. Put only the final short answer inside <answer>...</answer>. Return exactly these two blocks in this order, without additional text.
+

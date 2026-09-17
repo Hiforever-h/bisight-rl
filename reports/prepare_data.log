@@ -1,0 +1,153 @@
+auditing cross-split images
+{
+  "raw": {
+    "train": {
+      "questions": 28299,
+      "charts": 18271,
+      "strata": {
+        "human:list": 61,
+        "human:numeric": 5100,
+        "human:text": 2237,
+        "machine:numeric": 17747,
+        "machine:text": 3154
+      },
+      "source": {
+        "human": 7398,
+        "machine": 20901
+      },
+      "max_questions_per_chart": 6
+    },
+    "val": {
+      "questions": 1920,
+      "charts": 1055,
+      "strata": {
+        "human:list": 3,
+        "human:numeric": 648,
+        "human:text": 309,
+        "machine:numeric": 795,
+        "machine:text": 165
+      },
+      "source": {
+        "human": 960,
+        "machine": 960
+      },
+      "max_questions_per_chart": 6
+    },
+    "test": {
+      "questions": 2500,
+      "charts": 1509,
+      "strata": {
+        "human:list": 10,
+        "human:numeric": 835,
+        "human:text": 405,
+        "machine:numeric": 1080,
+        "machine:text": 170
+      },
+      "source": {
+        "human": 1250,
+        "machine": 1250
+      },
+      "max_questions_per_chart": 5
+    }
+  },
+  "eligible_train": {
+    "questions": 27223,
+    "charts": 17669,
+    "strata": {
+      "human:list": 60,
+      "human:numeric": 5028,
+      "human:text": 2197,
+      "machine:numeric": 16919,
+      "machine:text": 3019
+    },
+    "source": {
+      "human": 7285,
+      "machine": 19938
+    },
+    "max_questions_per_chart": 6
+  },
+  "initial_2000": {
+    "questions": 2000,
+    "charts": 1929,
+    "strata": {
+      "human:list": 4,
+      "human:numeric": 361,
+      "human:text": 158,
+      "machine:numeric": 1254,
+      "machine:text": 223
+    },
+    "source": {
+      "machine": 1477,
+      "human": 523
+    },
+    "max_questions_per_chart": 2
+  },
+  "pilot_100": {
+    "questions": 100,
+    "charts": 100,
+    "strata": {
+      "human:list": 1,
+      "human:numeric": 18,
+      "human:text": 8,
+      "machine:numeric": 61,
+      "machine:text": 12
+    },
+    "source": {
+      "machine": 73,
+      "human": 27
+    },
+    "max_questions_per_chart": 1
+  },
+  "dev_full": {
+    "questions": 1897,
+    "charts": 1042,
+    "strata": {
+      "human:list": 3,
+      "human:numeric": 641,
+      "human:text": 306,
+      "machine:numeric": 783,
+      "machine:text": 164
+    },
+    "source": {
+      "human": 950,
+      "machine": 947
+    },
+    "max_questions_per_chart": 6
+  },
+  "dev_quick": {
+    "questions": 256,
+    "charts": 246,
+    "strata": {
+      "human:numeric": 87,
+      "human:text": 41,
+      "machine:numeric": 106,
+      "machine:text": 22
+    },
+    "source": {
+      "machine": 128,
+      "human": 128
+    },
+    "max_questions_per_chart": 2
+  },
+  "cross_split_pairs": {
+    "phash_only_below_pixel_similarity_threshold": 123415,
+    "confirmed_pixel_duplicate": 16,
+    "unresolved_near_duplicate": 651
+  },
+  "excluded_train_reasons": {
+    "cross_split_image_overlap_or_unresolved_near_duplicate": 772,
+    "duplicate_qa": 165,
+    "conflicting_labels": 139
+  },
+  "quarantined_image_counts": {
+    "train": 549,
+    "val": 13
+  },
+  "target_quotas": {
+    "human:list": 4,
+    "human:numeric": 361,
+    "human:text": 158,
+    "machine:numeric": 1254,
+    "machine:text": 223
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "dataset": "HuggingFaceM4/ChartQA",
+  "dataset_revision": "b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5",
+  "model": "Qwen/Qwen3-VL-4B-Instruct",
+  "model_revision": "ebb281ec70b05090aa6165b016eac8ec08e71b17",
+  "created_at": "2026-09-17T07:31:54.192875+00:00",
+  "config_sha256": "c6518d44bcf9781d8d0461bc1d488fd4c7ad1cdc023cbebff010cae0a2a5fedb",
+  "files": [
+    {
+      "name": "README.md",
+      "sha256": "b472dec95769eeda282ccb070b2820b80035f2be5181547d10ed300772adc666",
+      "bytes": 852
+    },
+    {
+      "name": "data/test-00000-of-00001-e2cd0b7a0f9eb20d.parquet",
+      "sha256": "efcf31333368c485eb569ec7bd4cc3694bd0e8e1a06c503124b51d27c924491d",
+      "bytes": 68898419
+    },
+    {
+      "name": "data/train-00000-of-00003-49492f364babfa44.parquet",
+      "sha256": "169979f8a8c64ba93ac1be22916bf9b49c9c2e4c57f5c0104e6f671f2aacd83a",
+      "bytes": 219024215
+    },
+    {
+      "name": "data/train-00001-of-00003-7302bae5e425bbc7.parquet",
+      "sha256": "a8819291729c807f163b93dcb2dc1fe60044d56412a0c0626cb7312df7392140",
+      "bytes": 310674206
+    },
+    {
+      "name": "data/train-00002-of-00003-194c9400785577a2.parquet",
+      "sha256": "528133aec54c7e948f40b8af56b083b98f9b7d1fdcdd1cd9e375f3df984f7ae4",
+      "bytes": 315273201
+    },
+    {
+      "name": "data/val-00000-of-00001-0f11003c77497969.parquet",
+      "sha256": "de58d649aaac8343e6a3fa5ab362a0458d5b5374f4112a95fea5d1d9253dd86e",
+      "bytes": 50225558
+    }
+  ],
+  "status": "downloaded"
+}

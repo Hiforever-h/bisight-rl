@@ -1,0 +1,24 @@
+-e .[dev]
+
+# A800 / Linux x86_64, CUDA 12.6 wheels.
+torch==2.8.0+cu126
+torchvision==0.23.0+cu126
+
+# Generation runtime.
+transformers==4.57.1
+accelerate==1.10.1
+huggingface_hub==0.36.2
+tokenizers==0.22.2
+safetensors==0.8.0
+
+# Dataset preparation and validation.
+pyarrow==23.0.1
+Pillow==12.3.0
+ImageHash==4.3.2
+numpy==2.4.6
+PyWavelets==1.9.0
+scipy==1.17.1
+PyYAML==6.0.3
+requests==2.34.2
+tqdm==4.70.1
+pytest==9.1.1

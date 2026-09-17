@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bisight-rl"
+version = "0.1.0"
+description = "Reproducible ChartQA reverse-thinking data construction"
+requires-python = ">=3.11"
+dependencies = [
+  "huggingface_hub>=0.34,<1", "pyarrow>=18,<24", "Pillow>=11,<13",
+  "ImageHash==4.3.2", "numpy>=1.26,<3", "PyYAML>=6,<7", "requests>=2.32,<3"
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+generation = ["transformers==4.57.1", "accelerate>=1.10,<2", "torch>=2.6,<3", "torchvision>=0.21,<1"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+

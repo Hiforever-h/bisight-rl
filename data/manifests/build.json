@@ -1,0 +1,220 @@
+{
+  "status": "candidates_ready_not_rationale_master",
+  "created_at": "2026-09-17T07:55:07.341687+00:00",
+  "dataset_revision": "b605b6e08b57faf4359aeb2fe6a3ca595f99b6c5",
+  "model_revision": "ebb281ec70b05090aa6165b016eac8ec08e71b17",
+  "config_sha256": "62ebe9e8cb2ace0452dd47125161e09e47b9fbfc45cda62f76c4ca462aaecc8f",
+  "preparation_script_sha256": "9d7a72ea4397e577cc6e343f60f4c6c5ae2531a9bc87a3d9c4b4301caa447e9a",
+  "data_module_sha256": "0127d1f2bf492c922fbaa958d76581f246ddd837bccc52c6c2f5936d4ddb5eb3",
+  "seed": 20260917,
+  "target_size": 2000,
+  "target_quotas": {
+    "human:list": 4,
+    "human:numeric": 361,
+    "human:text": 158,
+    "machine:numeric": 1254,
+    "machine:text": 223
+  },
+  "python": "3.11.16",
+  "dependencies": {
+    "Pillow": "12.3.0",
+    "ImageHash": "4.3.2",
+    "numpy": "2.4.6",
+    "pyarrow": "23.0.1"
+  },
+  "artifacts": {
+    "candidates/train_candidates.jsonl": {
+      "sha256": "3bb42c9a1f7b2a5c45add9089674b099c832b086f2a03b47fe012c106aaf2956",
+      "rows": 27223
+    },
+    "candidates/train_initial_2000.jsonl": {
+      "sha256": "74caa4025a8eed9ba092e81534bd9d1fef9f4d5deef7aab9c9afd004bdbcf73b",
+      "rows": 2000
+    },
+    "candidates/pilot_100.jsonl": {
+      "sha256": "b6180d20d4c72b463c8f65546419956753792655b11d825c948e56dc3be2ba8d",
+      "rows": 100
+    },
+    "candidates/dev_full.jsonl": {
+      "sha256": "aaecc78fbe95fd8f1206d3b58dbb75405eb1a5673b189fc49eb0dc39b977a5af",
+      "rows": 1897
+    },
+    "candidates/dev_quick.jsonl": {
+      "sha256": "4cdfa2b351b00859bbf291d904c8d4107f393ec0bfdbb2d109a2437954791c6a",
+      "rows": 256
+    },
+    "candidates/test_full.jsonl": {
+      "sha256": "522ca7b0286f7ea4f16b296db91123e8d86bcba64d161e42464ec46e2e799522",
+      "rows": 2500
+    },
+    "reviews/cross_split_pairs.jsonl": {
+      "sha256": "ada6f212a3adfea8872e0c5f43281998b83544a55dd2799b9f3c213259144c61",
+      "rows": 124082
+    },
+    "reviews/train_exclusions.jsonl": {
+      "sha256": "62690e2ba103637894c5b06f46b3a2868e8901006686493d094a2cf8e7338c0d",
+      "rows": 1076
+    },
+    "reviews/data_errors.jsonl": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rows": 0
+    }
+  },
+  "summary": {
+    "raw": {
+      "train": {
+        "questions": 28299,
+        "charts": 18271,
+        "strata": {
+          "human:list": 61,
+          "human:numeric": 5100,
+          "human:text": 2237,
+          "machine:numeric": 17747,
+          "machine:text": 3154
+        },
+        "source": {
+          "human": 7398,
+          "machine": 20901
+        },
+        "max_questions_per_chart": 6
+      },
+      "val": {
+        "questions": 1920,
+        "charts": 1055,
+        "strata": {
+          "human:list": 3,
+          "human:numeric": 648,
+          "human:text": 309,
+          "machine:numeric": 795,
+          "machine:text": 165
+        },
+        "source": {
+          "human": 960,
+          "machine": 960
+        },
+        "max_questions_per_chart": 6
+      },
+      "test": {
+        "questions": 2500,
+        "charts": 1509,
+        "strata": {
+          "human:list": 10,
+          "human:numeric": 835,
+          "human:text": 405,
+          "machine:numeric": 1080,
+          "machine:text": 170
+        },
+        "source": {
+          "human": 1250,
+          "machine": 1250
+        },
+        "max_questions_per_chart": 5
+      }
+    },
+    "eligible_train": {
+      "questions": 27223,
+      "charts": 17669,
+      "strata": {
+        "human:list": 60,
+        "human:numeric": 5028,
+        "human:text": 2197,
+        "machine:numeric": 16919,
+        "machine:text": 3019
+      },
+      "source": {
+        "human": 7285,
+        "machine": 19938
+      },
+      "max_questions_per_chart": 6
+    },
+    "initial_2000": {
+      "questions": 2000,
+      "charts": 1929,
+      "strata": {
+        "human:list": 4,
+        "human:numeric": 361,
+        "human:text": 158,
+        "machine:numeric": 1254,
+        "machine:text": 223
+      },
+      "source": {
+        "machine": 1477,
+        "human": 523
+      },
+      "max_questions_per_chart": 2
+    },
+    "pilot_100": {
+      "questions": 100,
+      "charts": 100,
+      "strata": {
+        "human:list": 1,
+        "human:numeric": 18,
+        "human:text": 8,
+        "machine:numeric": 61,
+        "machine:text": 12
+      },
+      "source": {
+        "machine": 73,
+        "human": 27
+      },
+      "max_questions_per_chart": 1
+    },
+    "dev_full": {
+      "questions": 1897,
+      "charts": 1042,
+      "strata": {
+        "human:list": 3,
+        "human:numeric": 641,
+        "human:text": 306,
+        "machine:numeric": 783,
+        "machine:text": 164
+      },
+      "source": {
+        "human": 950,
+        "machine": 947
+      },
+      "max_questions_per_chart": 6
+    },
+    "dev_quick": {
+      "questions": 256,
+      "charts": 246,
+      "strata": {
+        "human:numeric": 87,
+        "human:text": 41,
+        "machine:numeric": 106,
+        "machine:text": 22
+      },
+      "source": {
+        "machine": 128,
+        "human": 128
+      },
+      "max_questions_per_chart": 2
+    },
+    "cross_split_pairs": {
+      "phash_only_below_pixel_similarity_threshold": 123415,
+      "confirmed_pixel_duplicate": 16,
+      "unresolved_near_duplicate": 651
+    },
+    "excluded_train_reasons": {
+      "cross_split_image_overlap_or_unresolved_near_duplicate": 772,
+      "duplicate_qa": 165,
+      "conflicting_labels": 139
+    },
+    "quarantined_image_counts": {
+      "train": 549,
+      "val": 13
+    },
+    "target_quotas": {
+      "human:list": 4,
+      "human:numeric": 361,
+      "human:text": 158,
+      "machine:numeric": 1254,
+      "machine:text": 223
+    }
+  },
+  "limitations": [
+    "pHash + normalized pixel similarity candidates quarantined; thresholds do not prove all near duplicates are detected",
+    "No GPU generation or human rationale review performed",
+    "Latency subset awaits frozen processor input token counts"
+  ]
+}

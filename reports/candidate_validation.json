@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "candidate_questions": 27223,
+  "initial_questions": 2000,
+  "pilot_questions": 100,
+  "verified_images": 20220,
+  "rationale_count": 0,
+  "note": "Validates candidate data only; GPU generation, human review and training loader masks are pending"
+}

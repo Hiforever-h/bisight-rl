@@ -1,0 +1,5 @@
+Explain how to answer the question using the chart. A reference answer is provided for this offline explanation task.
+Base your explanation on visible chart evidence: identify the relevant categories, series, values and units, and explain any necessary comparison or calculation. Use only the steps this question needs; a direct chart lookup does not require artificial extra steps.
+Do not justify a conclusion by referring to the supplied answer, the prompt, or a ground-truth label. Do not invent chart values or relationships to fit the reference. If the chart does not support the reference answer, explain the conflict instead of fabricating supporting evidence.
+Return exactly one <think>...</think> block followed by one <answer>...</answer> block, with no other text. The think block must contain the evidence-based explanation. The answer block must contain only the short answer supported by your explanation.
+
