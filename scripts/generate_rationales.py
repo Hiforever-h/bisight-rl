@@ -13,6 +13,8 @@ from bisight_rl.common import digest, file_hash, now, read_jsonl, write_json, wr
 from bisight_rl.data import stratum
 from bisight_rl.quality import check_response
 
+THINK_PREFIX = "<think>"
+
 
 def attempt_path(run, row, attempt):
     return run / "attempts" / f"{digest(row['id'])[:24]}-{attempt}.json"
@@ -42,8 +44,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stage", choices=["pilot", "full"], required=True)
     parser.add_argument("--data-root", type=Path, default=Path("data"))
-    parser.add_argument("--run-dir", type=Path, default=Path("data/rationales/v1"))
+    parser.add_argument("--run-dir", type=Path, default=Path("data/rationales/v2"))
     parser.add_argument("--config", type=Path, default=Path("configs/generate_rationales.yaml"))
+    parser.add_argument("--limit", type=int, help="Generate only the first N pilot rows for a smoke test")
     parser.add_argument("--dry-run", action="store_true", help="Validate contracts and print plan without loading a model")
     args = parser.parse_args()
     cfg = yaml.safe_load(args.config.read_text())
@@ -57,6 +60,10 @@ def main():
     rows = read_jsonl(candidates_path)
     if any(r["split"] != "train" or r["data_errors"] for r in rows):
         raise ValueError("Generation input must be clean train-only rows")
+    if args.limit is not None:
+        if args.stage != "pilot" or args.limit <= 0:
+            raise ValueError("--limit must be a positive integer and is only supported for --stage pilot")
+        rows = rows[:args.limit]
     reverse_path, adaptive_path = Path("prompts/reverse_thinking.txt"), Path("prompts/adaptive.txt")
     contract = {
         "source_revision": source["dataset_revision"], "model": source["model"], "model_revision": source["model_revision"],
@@ -131,9 +138,11 @@ def main():
                 student_text = processor.apply_chat_template(student_messages, tokenize=False, add_generation_prompt=True)
                 student_inputs = processor(text=[student_text], images=[image], return_tensors="pt")
                 student_tokens = int(student_inputs["input_ids"].shape[-1])
-                teacher_user = [{"type": "image"}, {"type": "text", "text": row["question"] + "\n\nReference answer: " + row["canonical_answer"]}]
+                teacher_user = [{"type": "image"}, {"type": "text", "text": row["question"] + "\n\nTarget answer (private constraint; never mention it as a target in the output): " + row["canonical_answer"]}]
                 teacher_messages = [{"role": "system", "content": reverse}, {"role": "user", "content": teacher_user}]
-                teacher_text = processor.apply_chat_template(teacher_messages, tokenize=False, add_generation_prompt=True)
+                # Prefill the structural opening tag. Qwen3-VL otherwise tends to
+                # emit prose followed by <answer> while omitting <think> entirely.
+                teacher_text = processor.apply_chat_template(teacher_messages, tokenize=False, add_generation_prompt=True) + THINK_PREFIX
                 inputs = processor(text=[teacher_text], images=[image], return_tensors="pt").to("cuda")
                 teacher_tokens = int(inputs["input_ids"].shape[-1])
                 for n in range(len(attempts), cfg["max_attempts"]):
@@ -151,8 +160,9 @@ def main():
                         output_count = len(generated)
                         eos = model.generation_config.eos_token_id
                         eos_ids = set(eos if isinstance(eos, list) else [eos])
-                        reason = "stop" if int(generated[-1]) in eos_ids else "length"
-                        text = processor.decode(generated, skip_special_tokens=True, clean_up_tokenization_spaces=False)
+                        reason = "stop" if output_count and int(generated[-1]) in eos_ids else "length"
+                        generated_suffix = processor.decode(generated, skip_special_tokens=True, clean_up_tokenization_spaces=False)
+                        text = THINK_PREFIX + generated_suffix
                     quality = check_response(text, row["canonical_answer"], reason)
                     full_tokens = None
                     if quality["auto_pass"]:
@@ -166,7 +176,8 @@ def main():
                     response_hash = digest([row["id"], n, text])
                     result = {"sample_id": row["id"], "attempt": n, "seed": seed, "created_at": now(),
                               "contract_sha256": digest(contract), "response_sha256": response_hash,
-                              "raw_response": text, "finish_reason": reason, "generation_seconds": time.monotonic() - t0,
+                              "raw_response": text, "assistant_prefix": THINK_PREFIX,
+                              "finish_reason": reason, "generation_seconds": time.monotonic() - t0,
                               "student_input_tokens": student_tokens, "teacher_input_tokens": teacher_tokens,
                               "output_tokens": output_count, "sft_total_tokens": full_tokens, "quality": quality}
                     write_json(attempt_path(args.run_dir, row, n), result)

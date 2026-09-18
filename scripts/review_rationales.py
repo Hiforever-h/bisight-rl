@@ -129,7 +129,7 @@ def main():
     parser.add_argument("--stage", required=True, choices=["pilot", "final"])
     parser.add_argument("--action", required=True, choices=["export", "import"])
     parser.add_argument("--data-root", type=Path, default=Path("data"))
-    parser.add_argument("--run-dir", type=Path, default=Path("data/rationales/v1"))
+    parser.add_argument("--run-dir", type=Path, default=Path("data/rationales/v2"))
     args = parser.parse_args()
     (export_review if args.action == "export" else import_review)(args)
 

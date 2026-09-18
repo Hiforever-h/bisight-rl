@@ -8,7 +8,7 @@ import re
 
 FORMAT = re.compile(r"\A\s*<think>(?P<think>.*?)</think>\s*<answer>(?P<answer>.*?)</answer>\s*\Z", re.DOTALL)
 CONTROL = re.compile(r"</?(?:think|answer)>")
-LEAK = re.compile(r"\b(?:provided|given|supplied|reference|ground[- ]truth|known correct)\s+(?:correct\s+)?answer\b|\banswer\s+(?:provided|given|supplied)\b|标准答案|已知答案", re.I)
+LEAK = re.compile(r"\b(?:provided|given|supplied|reference|target|ground[- ]truth|known correct)\s+(?:correct\s+)?answer\b|\banswer\s+(?:provided|given|supplied)\b|\bprivate constraint\b|标准答案|已知答案", re.I)
 EQUATION = re.compile(r"(?<![\w.,])([-+]?\d+(?:\.\d+)?(?:\s*[-+*/×÷]\s*[-+]?\d+(?:\.\d+)?)+)\s*=\s*([-+]?\d+(?:\.\d+)?)(?![\w.,%])")
 OPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul, ast.Div: operator.truediv}
 
@@ -78,6 +78,8 @@ def check_response(text, canonical_answer, finish_reason):
         errors.append("empty_rationale")
     if LEAK.search(rationale):
         errors.append("answer_hint_reference")
+    if rationale.strip() == "UNSUPPORTED" or parsed["answer"].strip() == "UNSUPPORTED":
+        errors.append("unsupported_chart_evidence")
     if any(token in text for token in ("<|im_start|>", "<|im_end|>", "[INST]")):
         errors.append("role_token_echo")
     if not equivalent_for_supervision(canonical_answer, parsed["answer"]):

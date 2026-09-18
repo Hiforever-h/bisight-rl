@@ -42,6 +42,8 @@ def test_arithmetic_and_leakage():
     assert check_response("<think>The two bars are 3 and 4; 3 + 4 = 7.</think><answer>7</answer>", "7", "stop")["auto_pass"]
     assert not check_response("<think>3 + 4 = 9</think><answer>9</answer>", "9", "stop")["auto_pass"]
     assert not check_response("<think>The provided answer is 7.</think><answer>7</answer>", "7", "stop")["auto_pass"]
+    assert not check_response("<think>The target answer is 7.</think><answer>7</answer>", "7", "stop")["auto_pass"]
+    assert not check_response("<think>UNSUPPORTED</think><answer>UNSUPPORTED</answer>", "7", "stop")["auto_pass"]
     assert not check_response("<think>3 + 4 = 7</think><answer>7</answer>", "7", "length")["auto_pass"]
     with pytest.raises(ValueError):
         safe_arithmetic("__import__('os').system('whoami')")

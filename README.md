@@ -29,7 +29,8 @@ ChartQA 上的 TON 数据构造。研究设定见 [PLAN.md](PLAN.md)，详细数
 | `data/candidates/train_initial_2000.jsonl` | 初始 2,000 题清单 |
 | `data/candidates/pilot_100.jsonl` | 100 题试生成清单 |
 | `data/reviews/` | 跨划分图表对、训练排除原因、数据异常 |
-| `data/rationales/v1/` | A800 生成结果、逐次尝试和人工审查记录 |
+| `data/rationales/v1/` | 首轮 pilot 的格式失败诊断，仅保留审计，不继续写入 |
+| `data/rationales/v2/` | 修复协议后的 A800 生成结果、逐次尝试和人工审查记录 |
 | `data/processed/v1/rationale_master.jsonl` | 最终审查通过后才创建的母版 |
 | `reports/data_audit.md` | 实际数据统计 |
 
@@ -78,10 +79,12 @@ python scripts/check_processor.py
 ## 2. 先生成 100 条 pilot
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python scripts/generate_rationales.py --stage pilot --dry-run
+CUDA_VISIBLE_DEVICES=0 python scripts/generate_rationales.py --stage pilot --run-dir data/rationales/v2 --limit 5 --dry-run
+CUDA_VISIBLE_DEVICES=0 python -u scripts/generate_rationales.py --stage pilot --run-dir data/rationales/v2 --limit 5
+# 检查 5 条结果格式后，复用它们并继续完成全部 100 条
 set -o pipefail
-CUDA_VISIBLE_DEVICES=0 python -u scripts/generate_rationales.py --stage pilot 2>&1 | tee outputs/pilot.log
-python scripts/review_rationales.py --stage pilot --action export
+CUDA_VISIBLE_DEVICES=0 python -u scripts/generate_rationales.py --stage pilot --run-dir data/rationales/v2 2>&1 | tee outputs/pilot-v2.log
+python scripts/review_rationales.py --stage pilot --action export --run-dir data/rationales/v2
 ```
 
 中断后重复同一生成命令即可。每次尝试单独原子写入文件；已经自动通过的题不会重复采样，每题最多 3 次尝试。OOM 或网络等基础设施异常会停止并保留已有结果，不混作解释质量失败。
@@ -98,24 +101,24 @@ python scripts/review_rationales.py --stage pilot --action export
 在本地项目根目录下载：
 
 ```bash
-rsync -av a800:~/work/bisight-rl/data/rationales/v1/ data/rationales/v1/
+rsync -av a800:~/work/bisight-rl/data/rationales/v2/ data/rationales/v2/
 ```
 
-打开 `data/rationales/v1/pilot_review.html`，逐项填写同目录 CSV 的 `decision=pass/reject`、`hint_leak=yes/no`、`reviewer`、`notes`。不确定项填写 reject 并注明原因；不得批量填充虚构的人工审查结果。HTML 使用本地 `data/images/` 的相对路径。
+打开 `data/rationales/v2/pilot_review.html`，逐项填写同目录 CSV 的 `decision=pass/reject`、`hint_leak=yes/no`、`reviewer`、`notes`。不确定项填写 reject 并注明原因；不得批量填充虚构的人工审查结果。HTML 使用本地 `data/images/` 的相对路径。
 
 把填写好的 CSV 传回 A800：
 
 ```bash
-scp data/rationales/v1/pilot_review.csv a800:~/work/bisight-rl/data/rationales/v1/
+scp data/rationales/v2/pilot_review.csv a800:~/work/bisight-rl/data/rationales/v2/
 ```
 
 A800 上导入：
 
 ```bash
-python scripts/review_rationales.py --stage pilot --action import
+python scripts/review_rationales.py --stage pilot --action import --run-dir data/rationales/v2
 ```
 
-pilot 门槛：100 条已审查、答案提示残留为 0、reject 比例≤5%；允许通过门槛的少量 reject 会在全量生成时重试或补样。未达门槛时应先检查提示/生成问题；修改提示或配置须另用 `--run-dir data/rationales/v2`，重新完成 pilot。所有后续命令也使用同一个新 run-dir。
+pilot 门槛：100 条已审查、答案提示残留为 0、reject 比例≤5%；允许通过门槛的少量 reject 会在全量生成时重试或补样。未达门槛时应先检查提示/生成问题；修改提示或配置须另用一个全新的 run-dir（例如下一版 `data/rationales/v3`），重新完成 pilot。所有后续命令也使用同一个新 run-dir。
 
 ## 3. 生成 2,000 条候选母版
 
@@ -123,8 +126,8 @@ pilot 审查通过后，在 A800 执行：
 
 ```bash
 set -o pipefail
-CUDA_VISIBLE_DEVICES=0 python -u scripts/generate_rationales.py --stage full 2>&1 | tee outputs/full.log
-python scripts/review_rationales.py --stage final --action export
+CUDA_VISIBLE_DEVICES=0 python -u scripts/generate_rationales.py --stage full --run-dir data/rationales/v2 2>&1 | tee outputs/full-v2.log
+python scripts/review_rationales.py --stage final --action export --run-dir data/rationales/v2
 ```
 
 程序按照冻结候选顺序与来源/答案类型配额生成，复用同一配置下 pilot 中合格的尝试。失败后同层补样，直到自动通过的候选达到 2,000；不会把所有 27,223 题无条件生成一遍。如果无法凑齐，则显式失败并报告，不静默降低质量门槛。
@@ -134,7 +137,7 @@ python scripts/review_rationales.py --stage final --action export
 生成全部结果后在本地下载：
 
 ```bash
-rsync -av a800:~/work/bisight-rl/data/rationales/v1/ data/rationales/v1/
+rsync -av a800:~/work/bisight-rl/data/rationales/v2/ data/rationales/v2/
 rsync -av a800:~/work/bisight-rl/outputs/ outputs/a800/
 ```
 
@@ -144,8 +147,8 @@ rsync -av a800:~/work/bisight-rl/outputs/ outputs/a800/
 
 ```bash
 conda activate bisight-rl
-python scripts/review_rationales.py --stage final --action import
-python scripts/finalize_master.py
+python scripts/review_rationales.py --stage final --action import --run-dir data/rationales/v2
+python scripts/finalize_master.py --run-dir data/rationales/v2
 ```
 
 只有最终抽检通过且候选母版中不存在已知 reject 时，才生成 `data/processed/v1/rationale_master.jsonl` 和带 hash 的发布 manifest。未经逐条人工检查的记录明确标为 `auto_checked_in_sample_audited_release`，不会声称全部 2,000 条均经人工验证。
