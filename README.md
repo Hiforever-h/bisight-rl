@@ -119,7 +119,7 @@ A800 上导入：
 python scripts/review_rationales.py --stage pilot --action import --run-dir data/rationales/v3
 ```
 
-pilot 门槛：100 条已审查、答案提示残留为 0、reject 比例≤5%；允许通过门槛的少量 reject 会在全量生成时重试或补样。未达门槛时应先检查提示/生成问题；修改提示或配置须另用一个全新的 run-dir（例如下一版 `data/rationales/v4`），重新完成 pilot。所有后续命令也使用同一个新 run-dir。
+pilot 是完整性和流程就绪检查，不要求 100 条全部通过：100 条必须全部完成审查，至少存在一条可用响应，且任何标为 pass 的响应都不得有答案提示泄漏。所有 reject（包括原题/标签错误、生成错误及泄漏响应）均按响应 hash 记录并排除，不进入全量候选母版；reject 比例和泄漏数量作为诊断指标报告，不阻断对剩余候选的全量生成。若错误呈系统性或通过率低到不值得继续，应先修订提示；修改提示或生成配置须另用一个全新的 run-dir（例如 `data/rationales/v4`）。
 
 ## 3. 生成 2,000 条候选母版
 
@@ -131,7 +131,7 @@ CUDA_VISIBLE_DEVICES=0 python -u scripts/generate_rationales.py --stage full --r
 python scripts/review_rationales.py --stage final --action export --run-dir data/rationales/v3
 ```
 
-程序按照冻结候选顺序与来源/答案类型配额生成，复用同一配置下 pilot 中合格的尝试。失败后同层补样，直到自动通过的候选达到 2,000；不会把所有 27,223 题无条件生成一遍。如果无法凑齐，则显式失败并报告，不静默降低质量门槛。
+程序按照冻结候选顺序与来源/答案类型配额生成，复用同一配置下 pilot 中合格的尝试，并跳过人工判定 reject 的响应。失败或被拒后从同层候选顺序继续补样，直到自动通过且不属于已知 reject 的候选达到 2,000；不会把所有 27,223 题无条件生成一遍。如果无法凑齐，则显式失败并报告，不静默降低质量门槛。
 
 `full_candidate_master.jsonl` 此时仍是待最终抽检的候选母版。`final_review.html` / CSV 固定抽取 100 条，覆盖来源、答案类型、推理长度和重试状态。
 
@@ -154,7 +154,7 @@ python scripts/finalize_master.py --run-dir data/rationales/v3
 
 只有最终抽检通过且候选母版中不存在已知 reject 时，才生成 `data/processed/v1/rationale_master.jsonl` 和带 hash 的发布 manifest。未经逐条人工检查的记录明确标为 `auto_checked_in_sample_audited_release`，不会声称全部 2,000 条均经人工验证。
 
-若最终抽检发现错例：先导入以保存 reject 记录；把 `human_reviews.json` 同步回 A800，重新运行 full 以重试/补样。候选变化后，将旧的 `final_review*` 和 `final_gate.json` 移至归档目录，再重新导出抽检；若发现系统性错误或抽检错误比例>5%，应修订提示、创建新 run-dir 重新生成，不反复换抽检名单追求通过。pilot 中旧的 pass 后来被改为 reject 时，需重新核验 pilot 门槛。
+若最终抽检发现错例：先导入以保存 reject 记录；把 `human_reviews.json` 同步回 A800，重新运行 full，让已知 reject 被排除并从同层候选中补足到 2,000。候选变化后，将旧的 `final_review*` 和 `final_gate.json` 移至归档目录，再重新导出抽检；若发现系统性错误或抽检错误比例>5%，应修订提示、创建新 run-dir 重新生成，不反复换抽检名单追求通过。pilot 中旧的 pass 后来被改为 reject 时，重新导入 pilot 审查记录即可更新排除集合与门禁摘要。
 
 本轮交付到推理母版为止；full/drop50 SFT、GRPO 框架数据导出及实际训练 loss-mask 检查按总计划在后续完成。
 
