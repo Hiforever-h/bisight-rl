@@ -13,7 +13,7 @@ from review_rationales import review_digest
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-root", type=Path, default=Path("data"))
-    parser.add_argument("--run-dir", type=Path, default=Path("data/rationales/v2"))
+    parser.add_argument("--run-dir", type=Path, default=Path("data/rationales/v3"))
     parser.add_argument("--output", type=Path, default=Path("data/processed/v1/rationale_master.jsonl"))
     args = parser.parse_args()
     manifest = json.loads((args.run_dir / "manifest.json").read_text())

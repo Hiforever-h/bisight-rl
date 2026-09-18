@@ -11,7 +11,7 @@ import yaml
 
 from bisight_rl.common import digest, file_hash, now, read_jsonl, write_json, write_jsonl
 from bisight_rl.data import stratum
-from bisight_rl.quality import check_response
+from bisight_rl.quality import check_response, normalize_response_format
 
 THINK_PREFIX = "<think>"
 
@@ -44,7 +44,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stage", choices=["pilot", "full"], required=True)
     parser.add_argument("--data-root", type=Path, default=Path("data"))
-    parser.add_argument("--run-dir", type=Path, default=Path("data/rationales/v2"))
+    parser.add_argument("--run-dir", type=Path, default=Path("data/rationales/v3"))
     parser.add_argument("--config", type=Path, default=Path("configs/generate_rationales.yaml"))
     parser.add_argument("--limit", type=int, help="Generate only the first N pilot rows for a smoke test")
     parser.add_argument("--dry-run", action="store_true", help="Validate contracts and print plan without loading a model")
@@ -163,6 +163,8 @@ def main():
                         reason = "stop" if output_count and int(generated[-1]) in eos_ids else "length"
                         generated_suffix = processor.decode(generated, skip_special_tokens=True, clean_up_tokenization_spaces=False)
                         text = THINK_PREFIX + generated_suffix
+                    raw_response_before_normalization = text
+                    text, format_repairs = normalize_response_format(text)
                     quality = check_response(text, row["canonical_answer"], reason)
                     full_tokens = None
                     if quality["auto_pass"]:
@@ -177,9 +179,12 @@ def main():
                     result = {"sample_id": row["id"], "attempt": n, "seed": seed, "created_at": now(),
                               "contract_sha256": digest(contract), "response_sha256": response_hash,
                               "raw_response": text, "assistant_prefix": THINK_PREFIX,
+                              "format_repairs": format_repairs,
                               "finish_reason": reason, "generation_seconds": time.monotonic() - t0,
                               "student_input_tokens": student_tokens, "teacher_input_tokens": teacher_tokens,
                               "output_tokens": output_count, "sft_total_tokens": full_tokens, "quality": quality}
+                    if format_repairs:
+                        result["raw_response_before_normalization"] = raw_response_before_normalization
                     write_json(attempt_path(args.run_dir, row, n), result)
                     attempts.append(result)
                     if quality["auto_pass"] or reason == "input_too_long":

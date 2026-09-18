@@ -13,6 +13,23 @@ EQUATION = re.compile(r"(?<![\w.,])([-+]?\d+(?:\.\d+)?(?:\s*[-+*/×÷]\s*[-+]?\d
 OPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul, ast.Div: operator.truediv}
 
 
+def normalize_response_format(text):
+    """Repair only the observed unambiguous missing </think> case."""
+    think_start = text.find("<think>")
+    answer_start = text.find("<answer>")
+    if (
+        text.count("<think>") == 1
+        and text.count("</think>") == 0
+        and text.count("<answer>") == 1
+        and text.count("</answer>") == 1
+        and not text[:think_start].strip()
+        and think_start < answer_start
+    ):
+        repaired = text[:answer_start] + "</think>" + text[answer_start:]
+        return repaired, ["insert_missing_think_close_before_answer"]
+    return text, []
+
+
 def parse_response(text):
     m = FORMAT.fullmatch(text)
     if not m:

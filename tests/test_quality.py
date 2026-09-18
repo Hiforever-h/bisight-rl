@@ -1,6 +1,8 @@
 import pytest
 
-from bisight_rl.quality import check_response, equivalent_for_supervision, parse_response, relaxed_correctness, safe_arithmetic
+from bisight_rl.quality import (
+    check_response, equivalent_for_supervision, normalize_response_format, parse_response, relaxed_correctness, safe_arithmetic,
+)
 
 
 @pytest.mark.parametrize("target,prediction,expected", [
@@ -30,6 +32,24 @@ def test_relaxed_answer_does_not_certify_supervision():
 ])
 def test_rejects_ambiguous_format(response):
     assert parse_response(response) is None
+
+
+def test_repairs_only_unambiguous_missing_think_close():
+    malformed = "<think>Read 7 from the bar.<answer>7</answer>"
+    repaired, repairs = normalize_response_format(malformed)
+    assert repaired == "<think>Read 7 from the bar.</think><answer>7</answer>"
+    assert repairs == ["insert_missing_think_close_before_answer"]
+    assert check_response(repaired, "7", "stop")["auto_pass"]
+
+
+@pytest.mark.parametrize("response", [
+    "<think>truncated",
+    "prefix<think>x<answer>1</answer>",
+    "<think>x<answer>1</answer><answer>1</answer>",
+    "<think>x</think><answer>1</answer>",
+])
+def test_does_not_repair_ambiguous_or_complete_responses(response):
+    assert normalize_response_format(response) == (response, [])
 
 
 def test_empty_think_valid_for_student_but_not_master():
