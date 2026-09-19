@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import ast
+import csv
+import json
 import math
 import operator
 import re
 
 FORMAT = re.compile(r"\A\s*<think>(?P<think>.*?)</think>\s*<answer>(?P<answer>.*?)</answer>\s*\Z", re.DOTALL)
+ANSWER_BLOCK = re.compile(r"<answer>(?P<answer>.*?)</answer>", re.DOTALL)
 CONTROL = re.compile(r"</?(?:think|answer)>")
 LEAK = re.compile(r"\b(?:provided|given|supplied|reference|target|ground[- ]truth|known correct)\s+(?:correct\s+)?answer\b|\banswer\s+(?:provided|given|supplied)\b|\bprivate constraint\b|标准答案|已知答案", re.I)
 EQUATION = re.compile(r"(?<![\w.,])([-+]?\d+(?:\.\d+)?(?:\s*[-+*/×÷]\s*[-+]?\d+(?:\.\d+)?)+)\s*=\s*([-+]?\d+(?:\.\d+)?)(?![\w.,%])")
@@ -40,6 +43,17 @@ def parse_response(text):
     return {"rationale": think, "answer": answer}
 
 
+def extract_unique_answer(text):
+    """Extract one closed answer block without grading the surrounding format."""
+    matches = list(ANSWER_BLOCK.finditer(text))
+    if len(matches) != 1 or text.count("<answer>") != 1 or text.count("</answer>") != 1:
+        return None
+    answer = matches[0].group("answer").strip()
+    if not answer or CONTROL.search(answer):
+        return None
+    return answer
+
+
 def _number(text):
     try:
         return float(text[:-1]) / 100 if text.endswith("%") else float(text)
@@ -59,6 +73,73 @@ def relaxed_correctness(target, prediction):
     if b is not None and a:
         return abs(b - a) / abs(a) <= 0.05
     return prediction.lower() == target.lower()
+
+
+def parse_list_answer(text):
+    """Parse ChartQA's bracketed multi-item answer notation.
+
+    The dataset mixes valid JSON/Python lists with unquoted forms such as
+    ``[Gambia, Niger]``. The fallback CSV parser normalizes representation only;
+    item order remains significant.
+    """
+    if not isinstance(text, str):
+        return None
+    stripped = text.strip()
+    if not (stripped.startswith("[") and stripped.endswith("]")):
+        return None
+
+    parsed = None
+    for loader in (json.loads, ast.literal_eval):
+        try:
+            candidate = loader(stripped)
+        except (ValueError, SyntaxError, json.JSONDecodeError):
+            continue
+        if isinstance(candidate, list):
+            parsed = candidate
+            break
+    if parsed is None:
+        try:
+            parsed = next(csv.reader([stripped[1:-1]], skipinitialspace=True))
+        except (csv.Error, StopIteration):
+            return None
+    if not parsed:
+        return None
+
+    items = []
+    for value in parsed:
+        if value is None or isinstance(value, (list, tuple, dict, set)):
+            return None
+        item = str(value).strip()
+        if len(item) >= 2 and item[0] == item[-1] and item[0] in {"'", '"'}:
+            item = item[1:-1].strip()
+        if not item:
+            return None
+        items.append(item)
+    return items
+
+
+def list_aware_relaxed_correctness(target, prediction):
+    """ChartQA relaxed correctness plus ordered bracket-list normalization."""
+    target_items = parse_list_answer(target)
+    prediction_items = parse_list_answer(prediction)
+    if target_items is None and prediction_items is None:
+        return relaxed_correctness(target.strip(), prediction.strip())
+    if target_items is None or prediction_items is None or len(target_items) != len(prediction_items):
+        return False
+    return all(relaxed_correctness(left, right) for left, right in zip(target_items, prediction_items))
+
+
+def answer_matches_any_reference(references, prediction, list_aware=False):
+    """Match a prediction against alternative reference strings.
+
+    Pix2Struct aggregates multiple references with ``max``. In the pinned
+    ChartQA data every row currently has one outer reference; this still keeps
+    the evaluator correct if a future artifact contains alternatives.
+    """
+    if not isinstance(references, list) or not references or not isinstance(prediction, str):
+        return False
+    scorer = list_aware_relaxed_correctness if list_aware else relaxed_correctness
+    return any(isinstance(reference, str) and scorer(reference.strip(), prediction.strip()) for reference in references)
 
 
 def equivalent_for_supervision(target, prediction):

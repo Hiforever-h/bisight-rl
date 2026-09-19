@@ -9,6 +9,7 @@ from PIL import Image
 from bisight_rl.common import file_hash, write_json, write_jsonl
 from bisight_rl.sft.build_sft import canonical_assistant, compile_rows
 from bisight_rl.sft.common import encode_training_example, validate_compiled_dataset
+from bisight_rl.sft.evaluate_sft import evaluate_response, summarize, validate_evaluation_rows
 from bisight_rl.sft.train_sft import audit_trainable_parameters, discover_lora_targets, epoch_order, init_wandb
 from bisight_rl.sft.merge_sft import compare_captures, validation_rows
 
@@ -208,6 +209,51 @@ def test_wandb_offline_uses_deterministic_identity_without_resume(monkeypatch, t
         (("optimizer_step",), {}),
         (("train/*",), {"step_metric": "optimizer_step"}),
     ]
+
+
+def test_answer_evaluation_reports_official_and_list_aware_scores():
+    row = {
+        "id": "test:1",
+        "source": "human",
+        "answer_kind": "text",
+        "question": "Which countries?",
+        "answers": ["[China, USA]"],
+        "canonical_answer": "[China, USA]",
+    }
+    result = evaluate_response(row, '<think></think><answer>["China", "USA"]</answer>', 12, 64)
+    assert result["predicted_answer"] == '["China", "USA"]'
+    assert result["official_correct"] is False
+    assert result["list_aware_correct"] is True
+    assert result["list_valued_reference"] is True
+    metrics = summarize([result], "contract")
+    assert metrics["official_relaxed_accuracy"]["accuracy"] == 0.0
+    assert metrics["list_aware_relaxed_accuracy"]["accuracy"] == 1.0
+    assert metrics["official_vs_list_aware_disagreements"] == 1
+
+
+def test_evaluation_dataset_is_bound_to_manifest(tmp_path):
+    data_root = tmp_path / "data"
+    data = data_root / "candidates/test_full.jsonl"
+    row = {
+        "id": "test:1",
+        "split": "test",
+        "image_path": "images/example.png",
+        "image_file_sha256": "abc",
+        "question": "Which countries?",
+        "answers": ["[China, USA]"],
+        "canonical_answer": "[China, USA]",
+        "source": "human",
+        "data_errors": [],
+    }
+    write_jsonl(data, [row])
+    manifest = data_root / "manifests/build.json"
+    write_json(manifest, {"artifacts": {"candidates/test_full.jsonl": {"sha256": file_hash(data), "rows": 1}}})
+    assert validate_evaluation_rows(data, manifest)[0] == [row]
+    row["split"] = "train"
+    write_jsonl(data, [row])
+    write_json(manifest, {"artifacts": {"candidates/test_full.jsonl": {"sha256": file_hash(data), "rows": 1}}})
+    with pytest.raises(ValueError, match="Non-test row"):
+        validate_evaluation_rows(data, manifest)
 
 
 def test_merge_validation_balances_actions_and_checks_outputs():

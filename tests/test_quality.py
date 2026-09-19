@@ -1,7 +1,16 @@
 import pytest
 
 from bisight_rl.quality import (
-    check_response, equivalent_for_supervision, normalize_response_format, parse_response, relaxed_correctness, safe_arithmetic,
+    answer_matches_any_reference,
+    check_response,
+    equivalent_for_supervision,
+    extract_unique_answer,
+    list_aware_relaxed_correctness,
+    normalize_response_format,
+    parse_list_answer,
+    parse_response,
+    relaxed_correctness,
+    safe_arithmetic,
 )
 
 
@@ -22,6 +31,32 @@ def test_relaxed_answer_does_not_certify_supervision():
     assert equivalent_for_supervision("0", "0.0")
     q = check_response("<think>The chart reads 104.</think><answer>104</answer>", "100", "stop")
     assert not q["auto_pass"]
+
+
+@pytest.mark.parametrize("text,expected", [
+    ('["China", "USA"]', ["China", "USA"]),
+    ("['China', 'USA']", ["China", "USA"]),
+    ("[China, USA]", ["China", "USA"]),
+    ("[2014, 2016]", ["2014", "2016"]),
+    ("China, USA", None),
+])
+def test_parse_chartqa_list_answers(text, expected):
+    assert parse_list_answer(text) == expected
+
+
+def test_list_aware_relaxed_accuracy_is_ordered_and_representation_tolerant():
+    assert not relaxed_correctness("[China, USA]", '["China", "USA"]')
+    assert list_aware_relaxed_correctness("[China, USA]", '["China", "USA"]')
+    assert list_aware_relaxed_correctness("[100, 200]", "[104, 190]")
+    assert not list_aware_relaxed_correctness("[China, USA]", "[USA, China]")
+    assert not list_aware_relaxed_correctness("[China, USA]", "[China]")
+    assert answer_matches_any_reference(["UK", "United Kingdom"], "united kingdom")
+
+
+def test_answer_only_extraction_ignores_think_format_but_rejects_ambiguity():
+    assert extract_unique_answer("prefix <answer> Poland </answer> suffix") == "Poland"
+    assert extract_unique_answer("<answer>Poland</answer><answer>Poland</answer>") is None
+    assert extract_unique_answer("<think>x</think>") is None
 
 
 @pytest.mark.parametrize("response", [
