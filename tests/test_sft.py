@@ -1,5 +1,6 @@
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -8,6 +9,12 @@ from PIL import Image
 
 from bisight_rl.common import file_hash, write_json, write_jsonl
 from bisight_rl.sft.build_sft import canonical_assistant, compile_rows
+from bisight_rl.sft.audit_sft_rollouts import (
+    response_audit,
+    select_balanced_rows,
+    summarize as summarize_rollouts,
+    validate_existing_groups,
+)
 from bisight_rl.sft.common import encode_training_example, validate_compiled_dataset
 from bisight_rl.sft.evaluate_sft import evaluate_response, resolve_adapter, summarize, validate_evaluation_rows
 from bisight_rl.sft.train_sft import audit_trainable_parameters, discover_lora_targets, epoch_order, init_wandb
@@ -252,8 +259,54 @@ def test_evaluation_dataset_is_bound_to_manifest(tmp_path):
     row["split"] = "train"
     write_jsonl(data, [row])
     write_json(manifest, {"artifacts": {"candidates/test_full.jsonl": {"sha256": file_hash(data), "rows": 1}}})
-    with pytest.raises(ValueError, match="Non-test row"):
+    with pytest.raises(ValueError, match="Unexpected split"):
         validate_evaluation_rows(data, manifest)
+
+
+def test_rollout_audit_selection_is_seeded_and_source_balanced():
+    rows = [
+        {"id": f"human:{index}", "source": "human"} for index in range(7)
+    ] + [
+        {"id": f"machine:{index}", "source": "machine"} for index in range(7)
+    ]
+    selected = select_balanced_rows(rows, 7, 42)
+    assert selected == select_balanced_rows(rows, 7, 42)
+    assert selected != select_balanced_rows(rows, 7, 43)
+    assert Counter(row["source"] for row in selected) == {"human": 4, "machine": 3}
+
+
+def test_rollout_audit_reports_reasoning_and_reward_diversity():
+    row = {
+        "id": "val:1",
+        "source": "human",
+        "answer_kind": "text",
+        "question": "Which country?",
+        "answers": ["Poland"],
+        "canonical_answer": "Poland",
+    }
+    responses = [
+        "<think>Read the blue bar label.</think><answer>Poland</answer>",
+        "<think>\n\n</think><answer>Poland</answer>",
+        "<think>\n\n</think><answer>China</answer>",
+        "Poland",
+    ]
+    rollouts = [response_audit(row, text, 10, 64, index, 42) for index, text in enumerate(responses)]
+    groups = [{**row, "rollouts": rollouts}]
+    metrics = summarize_rollouts(groups, "contract")
+    assert metrics["nonempty_think"]["rate"] == 0.25
+    assert metrics["empty_think"]["rate"] == 0.5
+    assert metrics["answer_accuracy"]["accuracy"] == 0.5
+    assert metrics["accuracy_by_reasoning_action"]["nonempty_think"]["accuracy"] == 1.0
+    assert metrics["group_action_counts"] == {"contains_invalid_format": 1}
+    assert metrics["groups_with_any_nonempty_think"]["rate"] == 1.0
+    assert metrics["reward_diversity"]["groups_with_zero_answer_reward_variance"] == 0
+    validate_existing_groups(groups, [row], 4)
+    with pytest.raises(ValueError, match="Incomplete rollout group"):
+        validate_existing_groups([{**row, "rollouts": rollouts[:3]}], [row], 4)
+
+    no_reasoning = [[response_audit(row, responses[1], 10, 64, index, 42) for index in range(4)]]
+    zero_metrics = summarize_rollouts([{**row, "rollouts": no_reasoning[0]}], "contract")
+    assert zero_metrics["zero_nonempty_one_sided_95pct_upper_rate"] == pytest.approx(1 - 0.05 ** 0.25)
 
 
 def test_evaluation_adapter_is_optional_and_bound_to_base(tmp_path):

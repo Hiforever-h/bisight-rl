@@ -61,7 +61,7 @@ def resolve_adapter(adapter: Path | None, base_model: str):
     }
 
 
-def validate_evaluation_rows(data_path: Path, manifest_path: Path):
+def validate_evaluation_rows(data_path: Path, manifest_path: Path, expected_split="test"):
     manifest = json.loads(manifest_path.read_text())
     data_root = manifest_path.parent.parent.resolve()
     try:
@@ -96,8 +96,11 @@ def validate_evaluation_rows(data_path: Path, manifest_path: Path):
         if row["id"] in ids:
             raise ValueError(f"Duplicate evaluation ID: {row['id']}")
         ids.add(row["id"])
-        if row["split"] != "test":
-            raise ValueError(f"Non-test row in evaluation data: {row['id']}")
+        if row["split"] != expected_split:
+            raise ValueError(
+                f"Unexpected split in evaluation data for {row['id']}: "
+                f"expected {expected_split!r}, got {row['split']!r}"
+            )
         if row["data_errors"]:
             raise ValueError(f"Quarantined row in evaluation data: {row['id']}")
         if not isinstance(row["answers"], list) or not row["answers"] or not all(
