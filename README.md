@@ -210,6 +210,13 @@ CUDA_VISIBLE_DEVICES=0 python -m bisight_rl.sft.evaluate_sft \
   --output-dir outputs/sft/drop50/seed-42/eval-test
 ```
 
+不传 `--adapter` 时评测原始 base，可作为同设置下的直接对照：
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python -m bisight_rl.sft.evaluate_sft \
+  --output-dir outputs/sft/eval-base
+```
+
 中断后加 `--resume` 继续；用 `--limit 32` 可以先跑非正式冒烟测试。逐题结果写入 `predictions.jsonl`，汇总写入 `metrics.json`。主指标 `official_relaxed_accuracy` 与 ChartQA/Pix2Struct 一致：数字允许 5% 相对误差，非数字忽略大小写后精确匹配，多参考答案取任意匹配。ChartQA 的复合答案实际存成单个括号字符串，例如 `[Gambia, Niger]`；官方指标会整串匹配。评测器同时报告 `list_aware_relaxed_accuracy`，统一带引号/不带引号及空格差异、保持元素顺序，并逐元素应用相同 relaxed 规则。两者的分歧数会显式记录，不会用扩展指标冒充官方结果。无法提取唯一闭合 `<answer>...</answer>` 的输出计错；达到生成上限的样本仍保留并标记。数据、图片或推理运行错误会中止，修复后用 `--resume` 继续，不会静默跳过样本。
 
 正式配置见 `configs/sft_drop50.yaml`。训练仅对语言层 q/k/v/o 和 gate/up/down 投影注入 LoRA；视觉编码器、连接模块、embedding、lm_head 和基础权重都必须保持冻结，否则训练在参数审计阶段失败。

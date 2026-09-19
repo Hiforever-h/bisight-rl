@@ -1,4 +1,4 @@
-"""Evaluate a Qwen3-VL base model plus SFT adapter on ChartQA answers."""
+"""Evaluate a pinned Qwen3-VL base, optionally with an SFT adapter, on ChartQA."""
 from __future__ import annotations
 
 import argparse
@@ -42,6 +42,23 @@ def load_config(path: Path):
     if missing:
         raise ValueError(f"Missing evaluation config keys: {missing}")
     return config
+
+
+def resolve_adapter(adapter: Path | None, base_model: str):
+    if adapter is None:
+        return None
+    adapter = Path(adapter)
+    config_path = adapter / "adapter_config.json"
+    if not config_path.is_file():
+        raise FileNotFoundError(f"Not a PEFT adapter directory: {adapter}")
+    adapter_config = json.loads(config_path.read_text())
+    adapter_base = adapter_config.get("base_model_name_or_path")
+    if adapter_base and adapter_base != base_model:
+        raise ValueError(f"Adapter base model differs from evaluation config: {adapter_base!r} != {base_model!r}")
+    return {
+        "path": str(adapter.resolve()),
+        "digest": directory_digest(adapter),
+    }
 
 
 def validate_evaluation_rows(data_path: Path, manifest_path: Path):
@@ -175,7 +192,7 @@ def evaluate_response(row, response, generated_tokens, max_new_tokens):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=Path("configs/sft_drop50.yaml"))
-    parser.add_argument("--adapter", type=Path, required=True)
+    parser.add_argument("--adapter", type=Path, help="Optional PEFT adapter; omit to evaluate the base model")
     parser.add_argument("--data", type=Path, default=Path("data/candidates/test_full.jsonl"))
     parser.add_argument("--data-manifest", type=Path, default=Path("data/manifests/build.json"))
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -186,12 +203,7 @@ def main():
     args = parser.parse_args()
 
     config = load_config(args.config)
-    if not (args.adapter / "adapter_config.json").is_file():
-        raise FileNotFoundError(f"Not a PEFT adapter directory: {args.adapter}")
-    adapter_config = json.loads((args.adapter / "adapter_config.json").read_text())
-    adapter_base = adapter_config.get("base_model_name_or_path")
-    if adapter_base and adapter_base != config["model"]:
-        raise ValueError(f"Adapter base model differs from evaluation config: {adapter_base!r} != {config['model']!r}")
+    adapter_contract = resolve_adapter(args.adapter, config["model"])
 
     all_rows, data_manifest, artifact_key = validate_evaluation_rows(args.data, args.data_manifest)
     rows = all_rows
@@ -214,15 +226,20 @@ def main():
         ),
     }
 
+    runtime_packages = {
+        "torch": version("torch"),
+        "transformers": version("transformers"),
+    }
+    if adapter_contract is not None:
+        runtime_packages["peft"] = version("peft")
     contract = {
         "formal": args.limit is None,
         "device": args.device,
-        "model_loading": "pinned_base_plus_peft_adapter_without_merge",
+        "model_loading": "pinned_base_only" if adapter_contract is None else "pinned_base_plus_peft_adapter_without_merge",
         "config_sha256": file_hash(args.config),
         "model": config["model"],
         "model_revision": config["model_revision"],
-        "adapter_path": str(args.adapter.resolve()),
-        "adapter_digest": directory_digest(args.adapter),
+        "adapter": adapter_contract,
         "data_artifact": artifact_key,
         "data_sha256": file_hash(args.data),
         "data_manifest_sha256": file_hash(args.data_manifest),
@@ -232,11 +249,7 @@ def main():
         "prompt_sha256": file_hash(prompt_path),
         "max_new_tokens": max_new_tokens,
         "generation": {"do_sample": False, "num_beams": 1},
-        "runtime_packages": {
-            "torch": version("torch"),
-            "transformers": version("transformers"),
-            "peft": version("peft"),
-        },
+        "runtime_packages": runtime_packages,
         "official_scorer": OFFICIAL_SCORER_URL,
         "list_semantics": "ordered_items; representation-normalized; itemwise relaxed correctness",
         "evaluator_sha256": file_hash(Path(__file__)),
@@ -274,7 +287,6 @@ def main():
         return
 
     import torch
-    from peft import PeftModel
     from tqdm.auto import tqdm
     from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
     from transformers.utils import logging as transformers_logging
@@ -303,13 +315,18 @@ def main():
         device_map=device_map,
         attn_implementation=config["attention"],
     )
-    model = PeftModel.from_pretrained(base, args.adapter, is_trainable=False).eval()
+    if args.adapter is None:
+        model = base.eval()
+    else:
+        from peft import PeftModel
+
+        model = PeftModel.from_pretrained(base, args.adapter, is_trainable=False).eval()
     model.config.use_cache = True
     runtime = {
         "python": platform.python_version(),
         "torch": torch.__version__,
         "transformers": version("transformers"),
-        "peft": version("peft"),
+        "peft": version("peft") if args.adapter is not None else None,
         "cuda": torch.version.cuda,
         "gpu": torch.cuda.get_device_name(0) if args.device == "cuda" else None,
     }

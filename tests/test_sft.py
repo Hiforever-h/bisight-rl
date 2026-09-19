@@ -9,7 +9,7 @@ from PIL import Image
 from bisight_rl.common import file_hash, write_json, write_jsonl
 from bisight_rl.sft.build_sft import canonical_assistant, compile_rows
 from bisight_rl.sft.common import encode_training_example, validate_compiled_dataset
-from bisight_rl.sft.evaluate_sft import evaluate_response, summarize, validate_evaluation_rows
+from bisight_rl.sft.evaluate_sft import evaluate_response, resolve_adapter, summarize, validate_evaluation_rows
 from bisight_rl.sft.train_sft import audit_trainable_parameters, discover_lora_targets, epoch_order, init_wandb
 from bisight_rl.sft.merge_sft import compare_captures, validation_rows
 
@@ -254,6 +254,17 @@ def test_evaluation_dataset_is_bound_to_manifest(tmp_path):
     write_json(manifest, {"artifacts": {"candidates/test_full.jsonl": {"sha256": file_hash(data), "rows": 1}}})
     with pytest.raises(ValueError, match="Non-test row"):
         validate_evaluation_rows(data, manifest)
+
+
+def test_evaluation_adapter_is_optional_and_bound_to_base(tmp_path):
+    assert resolve_adapter(None, "base/model") is None
+    adapter = tmp_path / "adapter"
+    write_json(adapter / "adapter_config.json", {"base_model_name_or_path": "base/model"})
+    resolved = resolve_adapter(adapter, "base/model")
+    assert resolved["path"] == str(adapter.resolve())
+    assert len(resolved["digest"]) == 64
+    with pytest.raises(ValueError, match="differs"):
+        resolve_adapter(adapter, "other/model")
 
 
 def test_merge_validation_balances_actions_and_checks_outputs():
