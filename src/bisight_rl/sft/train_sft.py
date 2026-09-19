@@ -42,6 +42,11 @@ def load_config(path: Path):
         raise ValueError("warmup_ratio must be in [0, 1)")
     if config["lora_rank"] <= 0 or config["lora_alpha"] <= 0 or config["lora_dropout"] < 0:
         raise ValueError("Invalid LoRA configuration")
+    wandb_config = config.get("wandb")
+    if not isinstance(wandb_config, dict) or not wandb_config.get("project"):
+        raise ValueError("wandb.project must be configured")
+    if wandb_config.get("mode") not in {"online", "offline", "disabled"}:
+        raise ValueError("wandb.mode must be online, offline, or disabled")
     return config
 
 
@@ -95,21 +100,25 @@ def epoch_order(size: int, seed: int, epoch: int):
 
 
 def preflight(processor, rows, config, prompt, output: Path | None = None):
+    from tqdm.auto import tqdm
+
     records = []
-    for index, row in enumerate(rows, 1):
-        _, stats = encode_training_example(
-            processor,
-            row,
-            Path(config["data_root"]),
-            prompt,
-            config["max_input_tokens"],
-            config["max_response_tokens"],
-            config["max_total_tokens"],
-            verify_image_hash=True,
-        )
-        records.append(stats)
-        if index % 100 == 0 or index == len(rows):
-            print(json.dumps({"preflight": index, "total": len(rows)}), flush=True)
+    empty_count = 0
+    with tqdm(rows, desc="SFT processor preflight", unit="sample", dynamic_ncols=True, mininterval=0.5) as progress:
+        for row in progress:
+            _, stats = encode_training_example(
+                processor,
+                row,
+                Path(config["data_root"]),
+                prompt,
+                config["max_input_tokens"],
+                config["max_response_tokens"],
+                config["max_total_tokens"],
+                verify_image_hash=True,
+            )
+            records.append(stats)
+            empty_count += int(stats["think_empty"])
+            progress.set_postfix(empty=empty_count, refresh=False)
     report = {
         "status": "passed",
         "created_at": now(),
@@ -177,6 +186,42 @@ def append_metric(path: Path, value):
         handle.write(json.dumps(value, ensure_ascii=False) + "\n")
 
 
+def init_wandb(config, mode, contract_digest, seed, formal, output_dir):
+    if mode == "disabled":
+        return None
+    output_dir = Path(output_dir)
+    os.environ.setdefault("WANDB_CACHE_DIR", str(output_dir / ".wandb-cache"))
+    try:
+        import wandb
+    except ImportError as exc:
+        raise RuntimeError("W&B tracking is enabled but wandb is not installed; install requirements-sft.txt") from exc
+    settings = config["wandb"]
+    name = f"sft-drop50-seed-{seed}" if formal else f"sft-drop50-smoke-seed-{seed}"
+    kwargs = {
+        "project": settings["project"],
+        "group": settings.get("group"),
+        "name": name,
+        "id": f"sft-{contract_digest[:20]}",
+        "mode": mode,
+        "dir": str(output_dir),
+        "tags": list(settings.get("tags") or []) + (["formal"] if formal else ["smoke"]),
+        "config": {
+            "training": config,
+            "seed": seed,
+            "formal": formal,
+            "contract_digest": contract_digest,
+        },
+    }
+    if mode == "online":
+        kwargs["resume"] = "allow"
+    if settings.get("entity"):
+        kwargs["entity"] = settings["entity"]
+    run = wandb.init(**kwargs)
+    run.define_metric("optimizer_step")
+    run.define_metric("train/*", step_metric="optimizer_step")
+    return run
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=Path("configs/sft_drop50.yaml"))
@@ -186,6 +231,7 @@ def main():
     parser.add_argument("--preflight-only", action="store_true")
     parser.add_argument("--preflight-output", type=Path, default=Path("reports/sft_processor_audit.json"))
     parser.add_argument("--smoke-limit", type=int, help="Use only the first N rows; marks the run as non-formal")
+    parser.add_argument("--wandb-mode", choices=["online", "offline", "disabled"], help="Override config wandb.mode")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -269,6 +315,7 @@ def main():
         "runtime": runtime,
     }
     contract_digest = digest(contract)
+    wandb_mode = args.wandb_mode or config["wandb"]["mode"]
     manifest_path = output_dir / "run_manifest.json"
     if manifest_path.exists():
         old = json.loads(manifest_path.read_text())
@@ -279,6 +326,22 @@ def main():
     write_json(output_dir / "resolved_config.json", config)
     processor.save_pretrained(output_dir / "processor")
     write_json(output_dir / "processor_audit.json", preflight_report)
+    wandb_run = init_wandb(config, wandb_mode, contract_digest, args.seed, formal, output_dir)
+    write_json(
+        output_dir / "tracking.json",
+        {
+            "mode": wandb_mode,
+            "project": config["wandb"]["project"],
+            "entity": config["wandb"].get("entity"),
+            "run_id": wandb_run.id if wandb_run is not None else None,
+            "client_version": version("wandb") if wandb_run is not None else None,
+            "local_directory": str(output_dir / "wandb") if wandb_run is not None else None,
+        },
+    )
+    if wandb_run is not None:
+        wandb_run.summary["data/samples"] = preflight_report["samples"]
+        wandb_run.summary["data/empty_think"] = preflight_report["empty_think"]
+        wandb_run.summary["data/nonempty_think"] = preflight_report["samples"] - preflight_report["empty_think"]
 
     accelerator = Accelerator(gradient_accumulation_steps=accumulation, mixed_precision="bf16")
     model = Qwen3VLForConditionalGeneration.from_pretrained(
@@ -337,9 +400,21 @@ def main():
         if optimizer_step != expected_step:
             raise ValueError(f"Checkpoint optimizer step is inconsistent: {optimizer_step} != {expected_step}")
 
+    from tqdm.auto import tqdm
+
     metrics_path = output_dir / "metrics.jsonl"
-    window_losses, window_tokens = [], 0
+    window_losses, window_tokens, window_empty = [], 0, 0
     started = time.monotonic()
+    session_start_step = optimizer_step
+    progress = tqdm(
+        total=total_steps,
+        initial=optimizer_step,
+        desc=f"SFT seed={args.seed}",
+        unit="step",
+        dynamic_ncols=True,
+        mininterval=0.5,
+        disable=not accelerator.is_local_main_process,
+    )
     for epoch in range(start_epoch, int(config["epochs"])):
         order = epoch_order(len(rows), args.seed, epoch)
         offset0 = start_offset if epoch == start_epoch else 0
@@ -371,6 +446,7 @@ def main():
                 optimizer.zero_grad(set_to_none=True)
             window_losses.append(float(loss.detach().cpu()))
             window_tokens += stats["supervised_tokens"]
+            window_empty += int(row["think_empty"])
             if accelerator.sync_gradients:
                 optimizer_step += 1
                 next_epoch, next_offset = epoch, offset + 1
@@ -383,6 +459,8 @@ def main():
                     "optimizer_step": optimizer_step,
                     "loss_mean_over_microbatches": sum(window_losses) / len(window_losses),
                     "supervised_tokens": window_tokens,
+                    "empty_samples": window_empty,
+                    "nonempty_samples": len(window_losses) - window_empty,
                     "learning_rate": scheduler.get_last_lr()[0],
                     "grad_norm": float(grad_norm.detach().cpu()) if grad_norm is not None else None,
                     "elapsed_seconds": time.monotonic() - started,
@@ -390,8 +468,33 @@ def main():
                 }
                 if optimizer_step % int(config["log_steps"]) == 0:
                     append_metric(metrics_path, metric)
-                    accelerator.print(json.dumps(metric), flush=True)
-                window_losses, window_tokens = [], 0
+                    if wandb_run is not None and accelerator.is_main_process:
+                        wandb_run.log(
+                            {
+                                "optimizer_step": optimizer_step,
+                                "train/loss": metric["loss_mean_over_microbatches"],
+                                "train/learning_rate": metric["learning_rate"],
+                                "train/grad_norm": metric["grad_norm"],
+                                "train/supervised_tokens": metric["supervised_tokens"],
+                                "train/empty_samples": metric["empty_samples"],
+                                "train/nonempty_samples": metric["nonempty_samples"],
+                                "train/epoch": epoch + next_offset / len(rows),
+                                "train/max_cuda_memory_gib": metric["max_cuda_memory_bytes"] / 2**30,
+                                "train/samples_per_second": (optimizer_step - session_start_step)
+                                * accumulation
+                                / max(metric["elapsed_seconds"], 1e-9),
+                            }
+                        )
+                progress.update(1)
+                progress.set_postfix(
+                    epoch=f"{epoch + 1}/{config['epochs']}",
+                    loss=f"{metric['loss_mean_over_microbatches']:.4f}",
+                    lr=f"{metric['learning_rate']:.2e}",
+                    grad=f"{metric['grad_norm']:.3f}" if metric["grad_norm"] is not None else "n/a",
+                    mem=f"{metric['max_cuda_memory_bytes'] / 2**30:.1f}G",
+                    refresh=False,
+                )
+                window_losses, window_tokens, window_empty = [], 0, 0
                 if optimizer_step % int(config["save_steps"]) == 0 or optimizer_step == total_steps:
                     accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
@@ -412,6 +515,7 @@ def main():
                             numpy,
                         )
         start_offset = 0
+    progress.close()
     if optimizer_step != total_steps:
         raise RuntimeError(f"Optimizer step mismatch: {optimizer_step} != {total_steps}")
     accelerator.wait_for_everyone()
@@ -421,6 +525,11 @@ def main():
             output_dir / "completed.json",
             {"status": "complete", "completed_at": now(), "optimizer_steps": optimizer_step, "total_steps": total_steps},
         )
+        if wandb_run is not None:
+            wandb_run.summary["status"] = "complete"
+            wandb_run.summary["optimizer_steps"] = optimizer_step
+            wandb_run.summary["final_adapter"] = str(output_dir / "final_adapter")
+            wandb_run.finish(exit_code=0)
 
 
 if __name__ == "__main__":

@@ -7,3 +7,5 @@ Pillow==12.3.0
 PyYAML==6.0.3
 numpy==2.4.6
 safetensors==0.8.0
+tqdm==4.70.1
+wandb==0.30.0

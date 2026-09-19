@@ -170,6 +170,8 @@ python -m bisight_rl.sft.train_sft --preflight-only
 
 `--preflight-only` 会对全部 2,000 条运行真实 Qwen3-VL processor，检查多模态 chat template、空 think、assistant-only loss mask、视觉 token 和所有长度上限，不加载模型权重。任何样本失败都会中止，不裁剪或跳过。
 
+预检和正式训练都带 `tqdm` 进度条及 ETA。训练进度按 optimizer step 统计（而不是 gradient accumulation 内的 micro-batch），并显示当前 epoch、loss、learning rate、gradient norm 和 CUDA 峰值显存；从检查点恢复时会从已完成 step 继续计数。
+
 先完成 32 条非正式 GPU 闭环，再运行正式 seed=42：
 
 ```bash
@@ -177,6 +179,12 @@ CUDA_VISIBLE_DEVICES=0 python -m bisight_rl.sft.train_sft \
   --seed 42 --smoke-limit 32 --output-dir outputs/sft/smoke-seed-42
 
 CUDA_VISIBLE_DEVICES=0 python -m bisight_rl.sft.train_sft --seed 42
+```
+
+W&B 默认使用 `offline` 模式，因此训练不依赖外网或登录，离线记录位于本次输出目录下的 `wandb/`，本地的 `metrics.jsonl` 仍是可审计的主记录。需要实时上传时先配置 `WANDB_API_KEY`（或运行 `wandb login`），再加 `--wandb-mode online`；完全关闭可用 `--wandb-mode disabled`。离线训练完成后也可以手动同步：
+
+```bash
+wandb sync outputs/sft/drop50/seed-42/wandb/offline-run-*
 ```
 
 检查点只在完整 gradient accumulation 边界保存。中断后从明确检查点恢复，例如：

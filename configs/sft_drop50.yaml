@@ -26,3 +26,10 @@ lora_rank: 64
 lora_alpha: 128
 lora_dropout: 0.0
 language_module_marker: language_model
+
+wandb:
+  project: bisight-rl
+  entity: null
+  group: sft-drop50
+  mode: offline
+  tags: [chartqa, qwen3-vl, sft, drop50]

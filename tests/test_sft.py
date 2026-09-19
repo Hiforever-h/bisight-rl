@@ -1,5 +1,7 @@
 import json
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from PIL import Image
@@ -7,7 +9,7 @@ from PIL import Image
 from bisight_rl.common import file_hash, write_json, write_jsonl
 from bisight_rl.sft.build_sft import canonical_assistant, compile_rows
 from bisight_rl.sft.common import encode_training_example, validate_compiled_dataset
-from bisight_rl.sft.train_sft import audit_trainable_parameters, discover_lora_targets, epoch_order
+from bisight_rl.sft.train_sft import audit_trainable_parameters, discover_lora_targets, epoch_order, init_wandb
 from bisight_rl.sft.merge_sft import compare_captures, validation_rows
 
 
@@ -175,6 +177,37 @@ def test_epoch_order_is_deterministic_and_epoch_specific():
     assert epoch_order(32, 42, 0) == epoch_order(32, 42, 0)
     assert epoch_order(32, 42, 0) != epoch_order(32, 42, 1)
     assert sorted(epoch_order(32, 42, 0)) == list(range(32))
+
+
+def test_wandb_disabled_does_not_import_client(monkeypatch, tmp_path):
+    monkeypatch.setitem(sys.modules, "wandb", None)
+    assert init_wandb({"wandb": {}}, "disabled", "abc", 42, True, tmp_path) is None
+
+
+def test_wandb_offline_uses_deterministic_identity_without_resume(monkeypatch, tmp_path):
+    calls = {}
+    monkeypatch.setenv("WANDB_CACHE_DIR", str(tmp_path / ".wandb-cache"))
+
+    class FakeRun:
+        def define_metric(self, *args, **kwargs):
+            calls.setdefault("metrics", []).append((args, kwargs))
+
+    def fake_init(**kwargs):
+        calls["init"] = kwargs
+        return FakeRun()
+
+    monkeypatch.setitem(sys.modules, "wandb", SimpleNamespace(init=fake_init))
+    config = {"wandb": {"project": "bisight-rl", "group": "sft", "tags": ["drop50"]}}
+    run = init_wandb(config, "offline", "a" * 64, 42, True, tmp_path)
+    assert isinstance(run, FakeRun)
+    assert calls["init"]["id"] == "sft-" + "a" * 20
+    assert calls["init"]["mode"] == "offline"
+    assert calls["init"]["tags"] == ["drop50", "formal"]
+    assert "resume" not in calls["init"]
+    assert calls["metrics"] == [
+        (("optimizer_step",), {}),
+        (("train/*",), {"step_metric": "optimizer_step"}),
+    ]
 
 
 def test_merge_validation_balances_actions_and_checks_outputs():
