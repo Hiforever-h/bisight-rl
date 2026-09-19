@@ -1,4 +1,4 @@
-"""Build a portable generation kit; no model weights, raw parquet, or Git metadata."""
+"""Build a portable generation/SFT kit; no model weights, raw parquet, or Git metadata."""
 import argparse
 import json
 import tarfile
@@ -13,7 +13,12 @@ def main():
     args = parser.parse_args()
     root = Path.cwd()
     paths = []
-    for relative in ("README.md", "PLAN.md", "DATA_PLAN.md", "pyproject.toml", "environment.yml", "requirements-local.lock.txt", "requirements-generation.txt", ".gitignore"):
+    for relative in (
+        "README.md", "PLAN.md", "DATA_PLAN.md", "pyproject.toml", "environment.yml",
+        "requirements-local.lock.txt", "requirements-generation.txt", "requirements-sft.txt", ".gitignore",
+        "data/rationales/full_master.jsonl", "data/processed/sft_drop50.jsonl",
+        "data/processed/sft_drop50.manifest.json",
+    ):
         path = root / relative
         if path.exists():
             paths.append(path)

@@ -156,7 +156,45 @@ python scripts/finalize_master.py --run-dir data/rationales/v3
 
 若最终抽检发现错例：先导入以保存 reject 记录；把 `human_reviews.json` 同步回 A800，重新运行 full，让已知 reject 被排除并从同层候选中补足到 2,000。候选变化后，将旧的 `final_review*` 和 `final_gate.json` 移至归档目录，再重新导出抽检；若发现系统性错误或抽检错误比例>5%，应修订提示、创建新 run-dir 重新生成，不反复换抽检名单追求通过。pilot 中旧的 pass 后来被改为 reject 时，重新导入 pilot 审查记录即可更新排除集合与门禁摘要。
 
-本轮交付到推理母版为止；full/drop50 SFT、GRPO 框架数据导出及实际训练 loss-mask 检查按总计划在后续完成。
+## 5. drop50 SFT
+
+SFT 使用 `data/rationales/full_master.jsonl` 中已经冻结的 1,000 条空推理和 1,000 条非空推理。构建器只导出训练必需字段；生成阶段已经过期的 response hash、quality 和 normalization 审计字段不会进入训练。
+
+在 A800 环境安装 SFT 依赖并构建白名单数据：
+
+```bash
+python -m pip install -r requirements-sft.txt
+python -m bisight_rl.sft.build_sft
+python -m bisight_rl.sft.train_sft --preflight-only
+```
+
+`--preflight-only` 会对全部 2,000 条运行真实 Qwen3-VL processor，检查多模态 chat template、空 think、assistant-only loss mask、视觉 token 和所有长度上限，不加载模型权重。任何样本失败都会中止，不裁剪或跳过。
+
+先完成 32 条非正式 GPU 闭环，再运行正式 seed=42：
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python -m bisight_rl.sft.train_sft \
+  --seed 42 --smoke-limit 32 --output-dir outputs/sft/smoke-seed-42
+
+CUDA_VISIBLE_DEVICES=0 python -m bisight_rl.sft.train_sft --seed 42
+```
+
+检查点只在完整 gradient accumulation 边界保存。中断后从明确检查点恢复，例如：
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python -m bisight_rl.sft.train_sft --seed 42 \
+  --resume-from outputs/sft/drop50/seed-42/checkpoints/step-000025
+```
+
+训练完成后合并 LoRA。合并器在固定空/非空样本上比较合并前后的 teacher-forced logits、采样位置 argmax 和 greedy token 序列，验证通过后才原子发布 merged 目录：
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python -m bisight_rl.sft.merge_sft \
+  --adapter outputs/sft/drop50/seed-42/final_adapter \
+  --output outputs/models/sft-drop50-seed-42-merged
+```
+
+正式配置见 `configs/sft_drop50.yaml`。训练仅对语言层 q/k/v/o 和 gate/up/down 投影注入 LoRA；视觉编码器、连接模块、embedding、lm_head 和基础权重都必须保持冻结，否则训练在参数审计阶段失败。
 
 ## 本地复现前置处理
 

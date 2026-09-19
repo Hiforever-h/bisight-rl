@@ -4,11 +4,10 @@ import csv
 import html
 import json
 import os
-from collections import Counter
 from pathlib import Path
 
 from bisight_rl.common import digest, file_hash, now, read_jsonl, write_json, write_jsonl
-from bisight_rl.data import candidate_order, quotas, select_quota, stratum
+from bisight_rl.data import stratum
 from generate_rationales import get_candidate, load_attempts
 
 
@@ -36,26 +35,23 @@ def export_review(args):
         build = json.loads((args.data_root / "manifests/build.json").read_text())
         if len(rows) != build["target_size"]:
             raise ValueError("Full candidate master must have the frozen target count before final review")
-        # Source/type/length/retry-stratified sampling; freeze complete selected IDs.
+        # Final review covers every generated training candidate. Sampling is
+        # appropriate for the pilot readiness check, but it cannot record known
+        # failures in the remaining rows before training data is published.
         for row in rows:
             tokens = row["generation"]["output_tokens"]
             row["review_stratum"] = stratum(row) + (":short" if tokens < 256 else ":medium" if tokens < 768 else ":long") + (":retry" if row["generation"]["attempt"] else ":first")
-        groups = Counter(r["review_stratum"] for r in rows)
-        import random
-        rng = random.Random(20260919)
-        targets = {k: v + 1 for k, v in quotas(groups, 100 - len(groups), {k: v - 1 for k, v in groups.items()}).items()}
-        selected = []
-        for key in sorted(groups):
-            pool = [r for r in rows if r["review_stratum"] == key]
-            rng.shuffle(pool)
-            selected.extend(pool[:targets[key]])
+        selected = rows
         parent_hash = file_hash(parent)
     selection_meta = args.run_dir / f"{args.stage}_review_selection.json"
     if selection_path.exists():
         old_meta = json.loads(selection_meta.read_text())
         if old_meta["parent_sha256"] != parent_hash:
             raise ValueError("Candidate master changed. Archive the old review selection/CSV/HTML/meta before re-exporting.")
-        selected = read_jsonl(selection_path)
+        frozen = read_jsonl(selection_path)
+        if args.stage == "final" and len(frozen) != len(rows):
+            raise ValueError("Final review selection must contain every candidate. Archive the old sampled review artifacts before re-exporting.")
+        selected = frozen
     else:
         write_jsonl(selection_path, selected)
         write_json(selection_meta, {"parent_sha256": parent_hash, "selection_sha256": file_hash(selection_path),
@@ -66,12 +62,22 @@ def export_review(args):
             writer = csv.DictWriter(f, fieldnames=["sample_id", "response_sha256", "decision", "hint_leak", "reviewer", "notes"])
             writer.writeheader()
             writer.writerows({"sample_id": r["id"], "response_sha256": r["generation"]["response_sha256"]} for r in selected)
-    parts = ['<!doctype html><meta charset="utf-8"><title>ChartQA human review</title><style>body{font:16px system-ui;margin:24px;max-width:1400px}article{border-top:2px solid #777;margin:28px 0;padding:18px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}img{max-width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere}code{overflow-wrap:anywhere}</style>',
+    decisions = {}
+    if csv_path.exists():
+        with csv_path.open(newline="") as f:
+            decisions = {r["sample_id"]: r for r in csv.DictReader(f)}
+    passed = sum(r.get("decision") == "pass" for r in decisions.values())
+    rejected = sum(r.get("decision") == "reject" for r in decisions.values())
+    parts = ['<!doctype html><meta charset="utf-8"><title>ChartQA human review</title><style>body{font:16px system-ui;margin:24px;max-width:1400px}article{border-top:2px solid #777;margin:28px 0;padding:18px 0}article.pass{border-color:#16803c}article.reject{border-color:#c62828}.decision{font-weight:700}.pass .decision{color:#16803c}.reject .decision{color:#c62828}.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}img{max-width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere}code{overflow-wrap:anywhere}</style>',
              '<h1>ChartQA 人工审查</h1><p>对照图片核查读数、图例、单位、计算、结论与答案提示残留。在对应 CSV 中填写 decision=pass/reject、hint_leak=yes/no、reviewer、notes。自动通过不等于视觉正确；不确定项使用 reject 并说明原因。</p>']
+    parts.append(f'<p>共 {len(selected)} 条；已通过 {passed} 条；已判退 {rejected} 条。</p>')
     for index, row in enumerate(selected, 1):
         result = row["generation"]
+        review = decisions.get(row["id"], {})
+        decision = review.get("decision", "pending")
+        note = review.get("notes", "")
         relative = os.path.relpath((args.data_root / row["image_path"]).resolve(), args.run_dir.resolve())
-        parts.append(f'<article><h2>{index}. {html.escape(row["question"])}</h2><code>{html.escape(row["id"])}</code><p>Reference: {html.escape(row["canonical_answer"])}</p><div class="grid"><img loading="lazy" src="{html.escape(relative, quote=True)}"><div><pre>{html.escape(result["raw_response"])}</pre><p>Automatic errors: {html.escape(str(result["quality"]["errors"]))}</p></div></div></article>')
+        parts.append(f'<article class="{html.escape(decision)}"><h2>{index}. {html.escape(row["question"])}</h2><code>{html.escape(row["id"])}</code><p class="decision">Decision: {html.escape(decision)}; hint leak: {html.escape(review.get("hint_leak", "pending"))}</p><p>Review note: {html.escape(note)}</p><p>Reference: {html.escape(row["canonical_answer"])}</p><div class="grid"><img loading="lazy" src="{html.escape(relative, quote=True)}"><div><pre>{html.escape(result["raw_response"])}</pre><p>Automatic errors: {html.escape(str(result["quality"]["errors"]))}</p></div></div></article>')
     (args.run_dir / f"{args.stage}_review.html").write_text("\n".join(parts))
     print(f"Review {len(selected)} rows: {csv_path}")
 
