@@ -194,7 +194,7 @@ CUDA_VISIBLE_DEVICES=0 python -m bisight_rl.sft.train_sft --seed 42 \
   --resume-from outputs/sft/drop50/seed-42/checkpoints/step-000025
 ```
 
-训练完成后合并 LoRA。合并器在固定空/非空样本上比较合并前后的 teacher-forced logits、采样位置 argmax 和 greedy token 序列，验证通过后才原子发布 merged 目录：
+训练完成后合并 LoRA。合并器在固定空/非空样本上检查有限 logits、全局相对 logit RMSE、采样位置 argmax 一致率和 greedy token 序列；由于 FP32 LoRA 合入 BF16 基座必然产生舍入，局部 teacher-forced argmax 只作为诊断，固定样本的 greedy 序列仍须完全一致。验证通过后才原子发布 merged 目录：
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python -m bisight_rl.sft.merge_sft \

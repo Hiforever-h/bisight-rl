@@ -328,7 +328,34 @@ def test_merge_validation_balances_actions_and_checks_outputs():
     assert [row["id"] for row in validation_rows(rows, 4)] == ["e0", "e1", "f0", "f1"]
     before = [{"id": "x", "logits": torch.tensor([[1.0, 2.0]]), "argmax": torch.tensor([1]), "generated": torch.tensor([3])}]
     after = [{"id": "x", "logits": torch.tensor([[1.1, 2.0]]), "argmax": torch.tensor([1]), "generated": torch.tensor([3])}]
-    assert compare_captures(before, after, 0.2)["max_abs_logit_difference"] == pytest.approx(0.1)
+    report = compare_captures(before, after, 0.1, 0.2)
+    assert report["max_abs_logit_difference"] == pytest.approx(0.1)
+    assert report["sampled_argmax_match_rate"] == 1.0
     after[0]["generated"] = torch.tensor([4])
     with pytest.raises(ValueError, match="changes predictions"):
-        compare_captures(before, after, 0.2)
+        compare_captures(before, after, 0.1, 0.2)
+
+
+def test_merge_validation_allows_local_argmax_tie_but_rejects_numeric_drift():
+    torch = pytest.importorskip("torch")
+    before = [
+        {
+            "id": "x",
+            "logits": torch.tensor([[1.0, 1.01], [3.0, 1.0]]),
+            "argmax": torch.tensor([1, 0]),
+            "generated": torch.tensor([3, 4]),
+        }
+    ]
+    after = [
+        {
+            "id": "x",
+            "logits": torch.tensor([[1.02, 1.0], [3.0, 1.0]]),
+            "argmax": torch.tensor([0, 0]),
+            "generated": torch.tensor([3, 4]),
+        }
+    ]
+    report = compare_captures(before, after, 0.02)
+    assert report["sampled_argmax_match_rate"] == 0.5
+    assert report["greedy_generation_match_rate"] == 1.0
+    with pytest.raises(ValueError, match="relative logit RMSE"):
+        compare_captures(before, after, 0.001)

@@ -83,30 +83,72 @@ def capture_outputs(model, processor, rows, config, prompt, device, logit_positi
     return captures
 
 
-def compare_captures(before, after, max_abs_tolerance: float):
+def compare_captures(
+    before,
+    after,
+    max_relative_logit_rmse: float,
+    max_abs_tolerance: float | None = None,
+):
     import torch
 
     diagnostics, overall = [], 0.0
+    squared_difference = 0.0
+    squared_reference = 0.0
+    logit_count = 0
+    argmax_matches = 0
+    argmax_count = 0
     if [item["id"] for item in before] != [item["id"] for item in after]:
         raise ValueError("Merge validation sample order changed")
     for left, right in zip(before, after):
-        difference = float((left["logits"] - right["logits"]).abs().max())
+        if left["logits"].shape != right["logits"].shape:
+            raise ValueError(f"Merged logits shape changed for {left['id']}")
+        if not bool(torch.isfinite(left["logits"]).all()) or not bool(torch.isfinite(right["logits"]).all()):
+            raise ValueError(f"Non-finite logits in merge validation for {left['id']}")
+        delta = left["logits"].double() - right["logits"].double()
+        difference = float(delta.abs().max())
         overall = max(overall, difference)
-        argmax_equal = bool(torch.equal(left["argmax"], right["argmax"]))
+        squared_difference += float(delta.square().sum())
+        squared_reference += float(
+            (left["logits"].double().square() + right["logits"].double().square()).sum() / 2
+        )
+        logit_count += delta.numel()
+        sample_argmax_matches = int((left["argmax"] == right["argmax"]).sum())
+        sample_argmax_count = left["argmax"].numel()
+        argmax_matches += sample_argmax_matches
+        argmax_count += sample_argmax_count
         generation_equal = bool(torch.equal(left["generated"], right["generated"]))
         diagnostics.append(
             {
                 "id": left["id"],
                 "max_abs_logit_difference": difference,
-                "sampled_argmax_equal": argmax_equal,
+                "sampled_argmax_matches": sample_argmax_matches,
+                "sampled_argmax_count": sample_argmax_count,
+                "sampled_argmax_match_rate": sample_argmax_matches / sample_argmax_count,
                 "greedy_generation_equal": generation_equal,
             }
         )
-        if not argmax_equal or not generation_equal:
+        if not generation_equal:
             raise ValueError(f"Merged model changes predictions for {left['id']}: {diagnostics[-1]}")
-    if overall > max_abs_tolerance:
+    if logit_count == 0 or argmax_count == 0:
+        raise ValueError("Merge validation captured no logits")
+    relative_rmse = (squared_difference / max(squared_reference, 1e-30)) ** 0.5
+    if relative_rmse > max_relative_logit_rmse:
+        raise ValueError(
+            f"Merged relative logit RMSE {relative_rmse} exceeds tolerance {max_relative_logit_rmse}"
+        )
+    if max_abs_tolerance is not None and overall > max_abs_tolerance:
         raise ValueError(f"Merged logit difference {overall} exceeds tolerance {max_abs_tolerance}")
-    return {"max_abs_logit_difference": overall, "tolerance": max_abs_tolerance, "samples": diagnostics}
+    return {
+        "relative_logit_rmse": relative_rmse,
+        "max_relative_logit_rmse": max_relative_logit_rmse,
+        "max_abs_logit_difference": overall,
+        "max_abs_logit_difference_tolerance": max_abs_tolerance,
+        "sampled_argmax_matches": argmax_matches,
+        "sampled_argmax_count": argmax_count,
+        "sampled_argmax_match_rate": argmax_matches / argmax_count,
+        "greedy_generation_match_rate": sum(item["greedy_generation_equal"] for item in diagnostics) / len(diagnostics),
+        "samples": diagnostics,
+    }
 
 
 def main():
@@ -118,7 +160,18 @@ def main():
     parser.add_argument("--validation-samples", type=int, default=4)
     parser.add_argument("--logit-positions", type=int, default=8)
     parser.add_argument("--generation-tokens", type=int, default=64)
-    parser.add_argument("--max-abs-logit-difference", type=float, default=0.5)
+    parser.add_argument(
+        "--max-relative-logit-rmse",
+        type=float,
+        default=0.05,
+        help="Maximum global relative RMSE between pre/post-merge sampled logits.",
+    )
+    parser.add_argument(
+        "--max-abs-logit-difference",
+        type=float,
+        default=None,
+        help="Optional absolute logit guard; disabled by default because BF16 extrema are scale-sensitive.",
+    )
     args = parser.parse_args()
 
     if args.output.exists():
@@ -171,7 +224,12 @@ def main():
     if any("lora_" in name.lower() for name, _ in merged.named_parameters()):
         raise ValueError("LoRA parameters remain after merge")
     after = capture_outputs(merged, processor, selected, config, prompt, device, args.logit_positions, args.generation_tokens)
-    comparison = compare_captures(before, after, args.max_abs_logit_difference)
+    comparison = compare_captures(
+        before,
+        after,
+        args.max_relative_logit_rmse,
+        args.max_abs_logit_difference,
+    )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     temp = Path(tempfile.mkdtemp(prefix=f".{args.output.name}-", dir=args.output.parent))
