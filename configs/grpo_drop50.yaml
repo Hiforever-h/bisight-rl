@@ -1,0 +1,182 @@
+bisight:
+  easy_r1_root: third_party/EasyR1
+  easy_r1_commit: 602a12820f69cf45ea98de08a63b3509313a7d02
+  data_manifest: data/processed/grpo.manifest.json
+  prompt: prompts/adaptive.txt
+  output_root: outputs/grpo/drop50/seed-42
+  dataloader_num_workers: 4
+  minimum_free_disk_gb: 12
+  wandb:
+    mode: offline
+    group: grpo-drop50
+    tags: [chartqa, qwen3-vl, grpo, ton, drop50]
+
+data:
+  train_files: data/processed/grpo_train.jsonl
+  val_files: data/processed/grpo_dev_quick.jsonl
+  prompt_key: problem
+  answer_key: answer
+  image_key: images
+  video_key: videos
+  image_dir: data
+  video_fps: 2.0
+  max_prompt_length: 4096
+  max_response_length: 2048
+
+  # EasyR1 units are prompts here. One sampling iteration ultimately collects
+  # 16 prompts * rollout.n=4 = 64 trajectories.
+  rollout_batch_size: 16
+  # Generation is performed in four chunks of four prompts to control peak RAM/VRAM.
+  # This does not change the final 16-prompt GRPO group batch.
+  mini_rollout_batch_size: 4
+  val_batch_size: 16
+
+  # The project bridge creates the exact SFT system+user message structure.
+  format_prompt: null
+  override_chat_template: null
+  shuffle: true
+  seed: 42
+  min_pixels: 65536
+  max_pixels: 1048576
+  filter_overlong_prompts: false
+  filter_overlong_prompts_workers: 4
+
+algorithm:
+  adv_estimator: grpo
+  disable_kl: false
+  use_kl_loss: true
+  kl_penalty: low_var_kl
+  kl_coef: 0.04
+  kl_type: fixed
+  online_filtering: false
+  filter_key: overall
+  filter_low: 0.01
+  filter_high: 0.99
+
+worker:
+  hybrid_engine: true
+  actor:
+    # EasyR1 multiplies this prompt mini-batch by rollout.n internally: 16*4=64
+    # trajectories, so all trajectories are used in one PPO mini-batch.
+    global_batch_size: 16
+    # With dynamic_batching=false these are literal trajectories per forward pass.
+    micro_batch_size_per_device_for_update: 1
+    micro_batch_size_per_device_for_experience: 1
+    max_grad_norm: 1.0
+    clip_ratio_low: 0.2
+    clip_ratio_high: 0.2
+    # EasyR1 applies dual clipping in its default loss. A very large bound disables
+    # that extra objective while retaining the registered symmetric 0.2 PPO clip.
+    clip_ratio_dual: 1000000.0
+    loss_avg_mode: token
+    loss_type: default
+    ppo_epochs: 1
+    padding_free: true
+    dynamic_batching: false
+    ulysses_size: 1
+    use_torch_compile: true
+    model:
+      # Override this with --model-path after merging the SFT adapter.
+      model_path: outputs/models/sft-drop50-seed-42-merged
+      tokenizer_path: null
+      override_config: {}
+      enable_gradient_checkpointing: true
+      trust_remote_code: false
+      freeze_vision_tower: true
+      lora:
+        rank: 64
+        alpha: 128
+        target_modules: q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj
+        exclude_modules: ".*(visual|vision|merger|connector).*"
+    optim:
+      lr: 1.0e-6
+      betas: [0.9, 0.999]
+      weight_decay: 0.01
+      strategy: adamw_bf16
+      lr_warmup_ratio: 0.0
+      lr_warmup_steps: null
+      min_lr_ratio: null
+      lr_scheduler_type: constant
+    fsdp:
+      enable_full_shard: true
+      enable_cpu_offload: false
+      enable_rank0_init: true
+      use_orig_params: false
+      torch_dtype: bf16
+      fsdp_size: -1
+      mp_param_dtype: bf16
+      mp_reduce_dtype: fp32
+      mp_buffer_dtype: fp32
+    offload:
+      offload_params: true
+      offload_optimizer: true
+
+  rollout:
+    name: vllm
+    n: 4
+    temperature: 1.0
+    top_p: 1.0
+    top_k: -1
+    seed: 42
+    limit_images: 1
+    dtype: bf16
+    gpu_memory_utilization: 0.35
+    ignore_eos: false
+    enforce_eager: false
+    enable_chunked_prefill: false
+    tensor_parallel_size: 1
+    max_model_len: 6144
+    max_num_batched_tokens: 8192
+    disable_log_stats: true
+    disable_tqdm: false
+    val_override_config:
+      temperature: 0.0
+      top_p: 1.0
+      n: 1
+
+  ref:
+    fsdp:
+      enable_full_shard: true
+      enable_cpu_offload: true
+      enable_rank0_init: true
+      use_orig_params: false
+      torch_dtype: bf16
+      fsdp_size: -1
+      mp_param_dtype: bf16
+      mp_reduce_dtype: fp32
+      mp_buffer_dtype: fp32
+    offload:
+      offload_params: false
+
+  reward:
+    reward_function: src/bisight_rl/grpo/reward.py:compute_score
+    reward_function_kwargs:
+      audit_path: null
+      max_response_length: 2048
+    skip_special_tokens: true
+    num_cpus: 1
+
+trainer:
+  total_epochs: 1
+  # In this fixed mapping one EasyR1 global step is one 16x4 sampling/update iteration.
+  max_steps: 200
+  project_name: bisight-rl
+  experiment_name: grpo-drop50-seed-42
+  logger: [console, file, wandb]
+  nnodes: 1
+  n_gpus_per_node: 1
+  max_try_make_batch: 20
+  critic_warmup: 0
+  val_freq: 20
+  val_before_train: true
+  val_only: false
+  val_generations_to_log: 8
+  # Full resumable FSDP checkpoints are relatively large. Save at 100 and 200
+  # only, retain at most two, and keep optimizer/RNG state.
+  save_freq: 100
+  save_limit: 2
+  save_model_only: false
+  save_checkpoint_path: outputs/grpo/drop50/seed-42/checkpoints
+  load_checkpoint_path: null
+  find_last_checkpoint: true
+  ray_timeline: null

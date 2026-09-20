@@ -231,6 +231,78 @@ CUDA_VISIBLE_DEVICES=0 python -m bisight_rl.sft.audit_sft_rollouts \
 
 正式配置见 `configs/sft_drop50.yaml`。训练仅对语言层 q/k/v/o 和 gate/up/down 投影注入 LoRA；视觉编码器、连接模块、embedding、lm_head 和基础权重都必须保持冻结，否则训练在参数审计阶段失败。
 
+## GRPO（EasyR1）
+
+GRPO 使用固定 commit 的 EasyR1。仓库源码放在 `third_party/EasyR1`，父项目不重复提交这份第三方代码；commit 记录在 `third_party/EasyR1.commit` 和 `configs/grpo_drop50.yaml`。在 AutoDL 上初始化：
+
+```bash
+git clone https://github.com/hiyouga/EasyR1.git third_party/EasyR1
+git -C third_party/EasyR1 checkout 602a12820f69cf45ea98de08a63b3509313a7d02
+pip install -r requirements-grpo.txt
+```
+
+从已经冻结的 `full_master.jsonl` 构建 RL 数据。构建器强制训练题 ID 及顺序与 `sft_drop50` 一致，只向模型提供图片和问题；参考答案以 JSON 字符串单独保存在 reward 字段中：
+
+```bash
+python -m bisight_rl.grpo.build_grpo
+```
+
+产物为 `data/processed/grpo_train.jsonl`、`grpo_dev_quick.jsonl` 和 `grpo.manifest.json`。当前实物应为 2,000 条 train、256 条 dev；图片、ID、prompt、SFT 数据和源文件哈希全部写入 manifest。
+
+训练必须从 `merge_sft.py` 产生并验证过的 merged-SFT 模型开始，不能把 SFT adapter 直接叠在新的 GRPO adapter 下。先执行完整 preflight；它会逐条比较 EasyR1 与 SFT 路径产生的多模态 prompt token，任何截断、模板变化、图片哈希变化或 EasyR1 commit 漂移都会终止：
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python -m bisight_rl.grpo.train_grpo \
+  --model-path /root/autodl-tmp/models/sft-drop50-seed-42-merged \
+  --preflight-only
+```
+
+先跑 5 个完整采样—更新循环的 P0；`--p0` 自动使用独立的 `seed-42-p0` 输出目录，避免污染正式续训状态：
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python -m bisight_rl.grpo.train_grpo \
+  --model-path /root/autodl-tmp/models/sft-drop50-seed-42-merged \
+  --p0 --wandb-mode offline
+```
+
+P0 通过后运行正式 200 轮：
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python -m bisight_rl.grpo.train_grpo \
+  --model-path /root/autodl-tmp/models/sft-drop50-seed-42-merged \
+  --wandb-mode online
+```
+
+EasyR1 的 batch 名称容易混淆，本项目把语义固定如下：
+
+| 配置字段 | 本项目值 | 实际含义 |
+| --- | ---: | --- |
+| `data.rollout_batch_size` | 16 | 一个训练 step 最终收集的不同问题数 |
+| `data.mini_rollout_batch_size` | 4 | 单次送给生成器的问题数；累计 4 个 chunk 后才更新 |
+| `worker.rollout.n` | 4 | 每个问题的候选回答数 |
+| `worker.actor.global_batch_size` | 16 | actor 的 prompt mini-batch；EasyR1 内部乘以 `n`，实际为 64 条轨迹 |
+| `micro_batch_size_per_device_for_update` | 1 | 单次反向的轨迹数，累计 64 次后做一个 optimizer step |
+| `micro_batch_size_per_device_for_experience` | 1 | 单次 old/ref log-prob forward 的轨迹数 |
+
+因此一个 `Running step` 始终表示 `16 个问题 × 4 条回答 = 64 条轨迹`，而不是 micro batch。主 `tqdm` 进度条显示 sampling iteration、耗时和 ETA，嵌套进度条显示生成、log-prob 和 update；`disable_tqdm` 被 preflight 强制为 false。
+
+W&B 与 SFT 一样支持 `online`、`offline`、`disabled` 三种模式，默认 offline。除 EasyR1 自带的 loss/KL/显存指标外，reward callback 还会上报格式率、答案准确率、空 think 比例和组内奖励是否有方差。全部原始训练回答及重算所需字段追加到 `rollouts.jsonl`，训练后检查：
+
+```bash
+python -m bisight_rl.grpo.audit_grpo \
+  --rollouts outputs/grpo/drop50/seed-42/rollouts.jsonl
+```
+
+正式配置每 20 轮验证一次，但只在第 100、200 轮保存周期 checkpoint，并最多保留 2 份。checkpoint 保留 optimizer、scheduler 和 RNG，可真正续训；重复相同命令会自动寻找最后一个 checkpoint，也可显式传入：
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python -m bisight_rl.grpo.train_grpo \
+  --model-path /root/autodl-tmp/models/sft-drop50-seed-42-merged \
+  --resume-from outputs/grpo/drop50/seed-42/checkpoints/global_step_100
+```
+
+奖励固定为 `format + answer`，两项都只能取 0/1。不会添加 think 长度、空 think、延迟、动作比例或 DAPO filtering 奖励。正式 reward 使用 ChartQA official-compatible relaxed accuracy；list-aware 分数只进入诊断日志，不参与优化。
+
 ## 本地复现前置处理
 
 ```bash

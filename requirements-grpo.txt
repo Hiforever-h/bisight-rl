@@ -1,0 +1,8 @@
+# Recommended: start from the EasyR1 CUDA image documented in third_party/EasyR1/README.md.
+# The exact EasyR1 source commit is pinned in third_party/EasyR1.commit and the GRPO YAML.
+-e ./third_party/EasyR1
+-e .
+transformers==4.57.1
+peft==0.17.1
+wandb==0.30.0
+tqdm==4.70.1

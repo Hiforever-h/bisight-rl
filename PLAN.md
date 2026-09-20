@@ -1,7 +1,7 @@
 # 在 ChartQA 上应用 TON：实施计划
 
 更新日期：2026-09-17  
-状态：计划已制定，尚未实施或启动训练。  
+状态：SFT 与 GRPO 工程代码已实施；GRPO 尚未在目标 A800 上完成 P0 或正式训练。
 项目定位：复现 TON 的方法，并迁移到 ChartQA 与 Qwen3-VL；不追求复现原论文的全部任务或数值。
 
 ## 1. 目标与已经确认的决策
@@ -246,7 +246,7 @@ GRPO 从该 merged SFT 模型初始化新的 LoRA adapter，初始策略应与 S
 | KL coefficient | 0.04，作为起始值；明示相对 EasyR1 默认值的覆盖 |
 | weight decay / max grad norm | 0.01 / 1.0 |
 | 初始训练上限 | 200 个采样迭代，约 3,200 次题目抽取、12,800 条候选 |
-| quick-val / save | 每 20 个采样迭代 |
+| quick-val / save | quick-val 每 20 个采样迭代；可续训 checkpoint 每 100 个采样迭代，最多保留 2 份（50GB 数据盘约束） |
 | GPU / tensor parallel | 1 / 1 |
 | vLLM memory utilization | 从 0.35 起测，按训练/rollout 生命周期调整 |
 | DAPO 式过滤、动作配额、额外长度奖励 | 全部关闭 |
@@ -281,7 +281,7 @@ S0/S1/R0/R1 各跑 3 个训练种子；同一种子成对比较。B0/B1/B2 的�
 
 S0/R0 自由生成时也允许空 think，不对其额外强制非空。B0/B1 是提示模式对照，报告指令遵循与实际 think 行为；若以后使用前缀强制控制，需要另命名并记录预填 token，不与普通提示结果混用。
 
-SFT 使用固定最后 epoch 检查点。GRPO 每 20 次采样在 dev_quick 监测，最多保留 quick-val 表现最好的 3 个候选和最后检查点；结束后只用 dev_full 按最高 relaxed accuracy 选择，准确率相同时取较早检查点。主指标不按 test 结果或最短响应挑模型。
+SFT 使用固定最后 epoch 检查点。GRPO 每 20 次采样在 dev_quick 监测，但考虑 AutoDL 数据盘只有 50GB，仅在第 100、200 次采样保存包含 optimizer/RNG 的可续训 checkpoint，最多保留 2 份；结束后只用 dev_full 在实际保存的候选中按最高 relaxed accuracy 选择，准确率相同时取较早检查点。主指标不按 test 结果或最短响应挑模型。
 
 先完成 seed=42 的整套流程；修复实现问题后冻结正式配置，再完成 42/43/44 配对实验。若首轮配置被修改，旧结果归档为 pilot，不混入正式均值。
 
