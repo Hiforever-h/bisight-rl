@@ -158,7 +158,12 @@ def run_preflight(config: dict, *, processor_check: bool = True, allow_dirty_eas
     data = config["data"]
     batch = validate_config(config)
     easy_root = _path(project["easy_r1_root"])
-    easy = validate_easyr1_checkout(easy_root, project["easy_r1_commit"], allow_dirty_easyr1)
+    easy = validate_easyr1_checkout(
+        easy_root,
+        project["easy_r1_commit"],
+        project["easy_r1_tree"],
+        allow_dirty_easyr1,
+    )
     if str(easy_root) not in sys.path:
         sys.path.insert(0, str(easy_root))
     artifacts, manifest = validate_artifacts(

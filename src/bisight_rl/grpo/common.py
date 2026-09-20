@@ -40,6 +40,7 @@ def validate_config(config: dict[str, Any]) -> dict[str, int | float]:
     required_project = {
         "easy_r1_root",
         "easy_r1_commit",
+        "easy_r1_tree",
         "data_manifest",
         "prompt",
         "output_root",
@@ -52,6 +53,8 @@ def validate_config(config: dict[str, Any]) -> dict[str, int | float]:
         raise ValueError(f"Missing bisight config keys: {missing}")
     if len(str(project["easy_r1_commit"])) != 40:
         raise ValueError("easy_r1_commit must be a full 40-character commit")
+    if len(str(project["easy_r1_tree"])) != 40:
+        raise ValueError("easy_r1_tree must be a full 40-character Git tree")
     if project["dataloader_num_workers"] < 0 or project["minimum_free_disk_gb"] < 0:
         raise ValueError("Dataloader workers and minimum free disk must be non-negative")
     wandb = project["wandb"]
@@ -137,27 +140,62 @@ def validate_config(config: dict[str, Any]) -> dict[str, int | float]:
     }
 
 
-def validate_easyr1_checkout(root: Path, expected_commit: str, allow_dirty: bool = False) -> dict[str, Any]:
-    root = Path(root).resolve()
-    if not (root / "verl/trainer/main.py").is_file() or not (root / ".git").is_dir():
-        raise FileNotFoundError(f"EasyR1 checkout not found at {root}")
-    commit = subprocess.run(
-        ["git", "-C", str(root), "rev-parse", "HEAD"],
+def _git(*args: str, cwd: Path) -> str:
+    return subprocess.run(
+        ["git", "-C", str(cwd), *args],
         check=True,
         capture_output=True,
         text=True,
     ).stdout.strip()
+
+
+def validate_easyr1_checkout(
+    root: Path,
+    expected_commit: str,
+    expected_tree: str,
+    allow_dirty: bool = False,
+) -> dict[str, Any]:
+    root = Path(root).resolve()
+    if not (root / "verl/trainer/main.py").is_file():
+        raise FileNotFoundError(f"EasyR1 checkout not found at {root}")
+
+    if (root / ".git").exists():
+        source = "standalone"
+        commit = _git("rev-parse", "HEAD", cwd=root)
+        tree = _git("rev-parse", "HEAD^{tree}", cwd=root)
+        dirty = _git("status", "--porcelain", "--untracked-files=all", cwd=root)
+    else:
+        source = "vendored"
+        commit_path = root.with_name(f"{root.name}.commit")
+        tree_path = root.with_name(f"{root.name}.tree")
+        if not commit_path.is_file() or not tree_path.is_file():
+            raise FileNotFoundError("Vendored EasyR1 commit/tree metadata is missing")
+        commit = commit_path.read_text(encoding="utf-8").strip()
+        declared_tree = tree_path.read_text(encoding="utf-8").strip()
+        if declared_tree != expected_tree:
+            raise ValueError(f"EasyR1 declared tree mismatch: {declared_tree} != {expected_tree}")
+        repository = Path(_git("rev-parse", "--show-toplevel", cwd=root)).resolve()
+        try:
+            relative_root = root.relative_to(repository).as_posix()
+        except ValueError as error:
+            raise ValueError(f"Vendored EasyR1 is outside its Git repository: {root}") from error
+        tree = _git("rev-parse", f"HEAD:{relative_root}", cwd=repository)
+        dirty = _git(
+            "status",
+            "--porcelain",
+            "--untracked-files=all",
+            "--",
+            relative_root,
+            cwd=repository,
+        )
+
     if commit != expected_commit:
         raise ValueError(f"EasyR1 commit mismatch: {commit} != {expected_commit}")
-    dirty = subprocess.run(
-        ["git", "-C", str(root), "status", "--porcelain"],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+    if tree != expected_tree:
+        raise ValueError(f"EasyR1 tree mismatch: {tree} != {expected_tree}")
     if dirty and not allow_dirty:
         raise ValueError("EasyR1 checkout has local changes; refuse an unpinned trainer implementation")
-    return {"root": str(root), "commit": commit, "dirty": bool(dirty)}
+    return {"root": str(root), "source": source, "commit": commit, "tree": tree, "dirty": bool(dirty)}
 
 
 def validate_artifacts(manifest_path: Path, train_path: Path, dev_path: Path, prompt_path: Path):

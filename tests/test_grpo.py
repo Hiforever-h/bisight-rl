@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -8,7 +9,7 @@ from PIL import Image
 from bisight_rl.common import file_hash, write_jsonl
 from bisight_rl.grpo.build_grpo import compile_rows
 from bisight_rl.grpo.audit_grpo import audit
-from bisight_rl.grpo.common import contract_digest, load_config, validate_config
+from bisight_rl.grpo.common import contract_digest, load_config, validate_config, validate_easyr1_checkout
 from bisight_rl.grpo.reward import compute_score, decode_ground_truth, encode_ground_truth, score_response
 from bisight_rl.grpo.train_grpo import apply_overrides, reconcile_rollout_log
 
@@ -159,6 +160,46 @@ def test_registered_batch_mapping_and_checkpoint_policy():
     }
     assert config["trainer"]["save_freq"] == 100
     assert config["trainer"]["save_limit"] == 2
+
+
+def test_vendored_easyr1_checkout_is_pinned_and_clean(tmp_path):
+    repository = tmp_path / "repository"
+    easy_root = repository / "third_party" / "EasyR1"
+    trainer = easy_root / "verl" / "trainer" / "main.py"
+    trainer.parent.mkdir(parents=True)
+    trainer.write_text("# pinned trainer\n", encoding="utf-8")
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", "-C", str(repository), *args],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    git("init")
+    git("add", "third_party/EasyR1")
+    git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "vendor source")
+    tree = git("rev-parse", "HEAD:third_party/EasyR1")
+    commit = "c" * 40
+    easy_root.with_name("EasyR1.commit").write_text(f"{commit}\n", encoding="utf-8")
+    easy_root.with_name("EasyR1.tree").write_text(f"{tree}\n", encoding="utf-8")
+    git("add", "third_party/EasyR1.commit", "third_party/EasyR1.tree")
+    git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "pin metadata")
+
+    report = validate_easyr1_checkout(easy_root, commit, tree)
+    assert report == {
+        "root": str(easy_root.resolve()),
+        "source": "vendored",
+        "commit": commit,
+        "tree": tree,
+        "dirty": False,
+    }
+
+    trainer.write_text("# locally modified trainer\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="local changes"):
+        validate_easyr1_checkout(easy_root, commit, tree)
+    assert validate_easyr1_checkout(easy_root, commit, tree, allow_dirty=True)["dirty"] is True
 
 
 def test_p0_and_seed_overrides_use_separate_output():

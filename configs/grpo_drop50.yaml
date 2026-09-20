@@ -1,6 +1,7 @@
 bisight:
   easy_r1_root: third_party/EasyR1
   easy_r1_commit: 602a12820f69cf45ea98de08a63b3509313a7d02
+  easy_r1_tree: 9fe739f1f940011e24f3558badc64d2912cd5c6d
   data_manifest: data/processed/grpo.manifest.json
   prompt: prompts/adaptive.txt
   output_root: outputs/grpo/drop50/seed-42

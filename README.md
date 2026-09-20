@@ -233,13 +233,14 @@ CUDA_VISIBLE_DEVICES=0 python -m bisight_rl.sft.audit_sft_rollouts \
 
 ## GRPO（EasyR1）
 
-GRPO 使用固定 commit 的 EasyR1。仓库源码放在 `third_party/EasyR1`，父项目不重复提交这份第三方代码；commit 记录在 `third_party/EasyR1.commit` 和 `configs/grpo_drop50.yaml`。在 AutoDL 上初始化：
+GRPO 使用固定 commit 的 EasyR1。源码已直接纳入主仓库的 `third_party/EasyR1`，不是 submodule；上游 commit 和 Git tree 分别记录在 `third_party/EasyR1.commit`、`third_party/EasyR1.tree` 和 `configs/grpo_drop50.yaml`。在 AutoDL 上普通拉取主仓库即可：
 
 ```bash
-git clone https://github.com/hiyouga/EasyR1.git third_party/EasyR1
-git -C third_party/EasyR1 checkout 602a12820f69cf45ea98de08a63b3509313a7d02
+git pull
 pip install -r requirements-grpo.txt
 ```
+
+preflight 会同时校验上游 commit 标识、vendored Git tree 以及本地改动，避免训练时意外使用漂移的 EasyR1 实现。
 
 从已经冻结的 `full_master.jsonl` 构建 RL 数据。构建器强制训练题 ID 及顺序与 `sft_drop50` 一致，只向模型提供图片和问题；参考答案以 JSON 字符串单独保存在 reward 字段中：
 
